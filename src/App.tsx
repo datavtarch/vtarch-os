@@ -149,12 +149,21 @@ function App() {
   const activeLabel = views.find((view) => view.id === activeView)?.label || 'Tổng quan'
 
   return (
-    <main className="min-h-screen bg-[#090a0d] pb-20 text-zinc-100 lg:pb-0">
-      <div className="mx-auto grid min-h-screen max-w-[1480px] grid-cols-1 lg:grid-cols-[252px_1fr]">
+    <main className="relative min-h-screen overflow-hidden bg-[#08090c] pb-20 text-zinc-100 lg:pb-0">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 opacity-[0.42]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(16,185,129,0.13), transparent 36%, rgba(14,165,233,0.08) 72%, transparent)',
+          backgroundSize: '44px 44px, 44px 44px, 100% 100%',
+        }}
+      />
+      <div className="relative mx-auto grid min-h-screen max-w-[1480px] grid-cols-1 lg:grid-cols-[252px_1fr]">
         <Sidebar activeView={activeView} setActiveView={setActiveView} source={source} />
 
         <section className="min-w-0 border-zinc-800/80 lg:border-l">
-          <Topbar activeLabel={activeLabel} setActiveView={setActiveView} />
+          <Topbar activeLabel={activeLabel} activeView={activeView} setActiveView={setActiveView} />
 
           <div className="p-3 md:p-5">
             {activeView === 'overview' && (
@@ -257,13 +266,15 @@ function Sidebar({
 
 function Topbar({
   activeLabel,
+  activeView,
   setActiveView,
 }: {
   activeLabel: string
+  activeView: ViewId
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-[#090a0d]/92 px-3 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.24)] backdrop-blur md:px-5">
+    <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-[#08090c]/88 px-3 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.24)] backdrop-blur-xl md:px-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">VTARCH OS</p>
@@ -275,7 +286,7 @@ function Topbar({
             Lọc
           </button>
           <button
-            className="inline-flex min-h-9 items-center gap-2 rounded-md bg-zinc-100 px-3 text-sm font-medium text-zinc-950"
+            className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-emerald-100"
             onClick={() => setActiveView('tasks')}
             type="button"
           >
@@ -288,7 +299,11 @@ function Topbar({
       <div className="mt-3 hidden gap-1 overflow-x-auto md:flex">
         {views.map(({ id, label }) => (
           <button
-            className="rounded-md px-3 py-1.5 text-sm text-zinc-400 transition hover:bg-zinc-900 hover:text-white"
+            className={`rounded-md px-3 py-1.5 text-sm transition ${
+              activeView === id
+                ? 'bg-zinc-100 text-zinc-950'
+                : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
+            }`}
             key={id}
             onClick={() => setActiveView(id)}
             type="button"
@@ -319,6 +334,7 @@ function OverviewView({
   return (
     <div className="space-y-4">
       <FocusHero selectedTask={selectedTask} tasks={tasks} />
+      <QuickActions setActiveView={setActiveView} />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {metrics.map(([title, value, meta, Icon]) => (
@@ -401,12 +417,80 @@ function OverviewView({
   )
 }
 
+function QuickActions({ setActiveView }: { setActiveView: (view: ViewId) => void }) {
+  const actions: Array<{
+    accent: string
+    description: string
+    icon: LucideIcon
+    label: string
+    target: ViewId
+  }> = [
+    {
+      accent: 'from-emerald-300/22 to-transparent text-emerald-200',
+      description: 'Task, deadline, nhắc việc',
+      icon: CheckCircle2,
+      label: 'Ghi việc mới',
+      target: 'tasks',
+    },
+    {
+      accent: 'from-sky-300/22 to-transparent text-sky-200',
+      description: 'Ý tưởng, link, tài liệu',
+      icon: NotebookText,
+      label: 'Lưu ghi chú',
+      target: 'notes',
+    },
+    {
+      accent: 'from-amber-300/22 to-transparent text-amber-200',
+      description: 'Thu, chi, công nợ',
+      icon: WalletCards,
+      label: 'Ghi tài chính',
+      target: 'finance',
+    },
+    {
+      accent: 'from-violet-300/22 to-transparent text-violet-200',
+      description: 'Bot và báo cáo tự động',
+      icon: Bot,
+      label: 'Tự động hóa',
+      target: 'automation',
+    },
+  ]
+
+  return (
+    <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {actions.map(({ accent, description, icon: Icon, label, target }) => (
+        <button
+          className="group overflow-hidden rounded-md border border-zinc-800 bg-[#0f1117] p-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-zinc-600"
+          key={label}
+          onClick={() => setActiveView(target)}
+          type="button"
+        >
+          <span className={`inline-flex size-9 items-center justify-center rounded-md bg-gradient-to-br ${accent}`}>
+            <Icon size={17} />
+          </span>
+          <span className="mt-3 block text-sm font-semibold text-white">{label}</span>
+          <span className="mt-1 block text-xs text-zinc-500">{description}</span>
+        </button>
+      ))}
+    </section>
+  )
+}
+
 function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[] }) {
   const todayCount = tasks.filter((task) => task.DueAt).length
+  const doneCount = tasks.filter((task) => task.Status === 'Done').length
+  const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0
   return (
-    <section className="overflow-hidden rounded-md border border-zinc-800 bg-[#101218] shadow-[0_24px_80px_rgba(0,0,0,0.26)]">
+    <section className="relative overflow-hidden rounded-md border border-zinc-800 bg-[#101218] shadow-[0_24px_80px_rgba(0,0,0,0.26)]">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 opacity-70"
+        style={{
+          background:
+            'linear-gradient(115deg, rgba(16,185,129,0.18), transparent 34%), linear-gradient(245deg, rgba(14,165,233,0.14), transparent 30%)',
+        }}
+      />
       <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="border-b border-zinc-800 p-4 md:p-5 lg:border-b-0 lg:border-r">
+        <div className="relative border-b border-zinc-800 p-4 md:p-5 lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3">
             <span className="rounded border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-200">
               Không gian làm việc
@@ -430,8 +514,17 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
               {selectedTask?.Priority || 'P2'}
             </span>
           </div>
+          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-zinc-950 ring-1 ring-zinc-800">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-sky-300 to-zinc-100"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            {progress}% công việc đã hoàn thành trong dữ liệu hiện tại
+          </p>
         </div>
-        <div className="grid grid-cols-3 divide-x divide-zinc-800 lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
+        <div className="relative grid grid-cols-3 divide-x divide-zinc-800 lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
           {[
             ['Tập trung', selectedTask?.Status ? statusLabel[selectedTask.Status] : 'Sẵn sàng'],
             ['Bot', 'Telegram'],
@@ -587,20 +680,32 @@ function TaskDetail({ task }: { task?: Task }) {
 }
 
 function CalendarView({ tasks }: { tasks: Task[] }) {
+  const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+
   return (
     <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
       <Panel title="Lịch tuần">
         <div className="grid grid-cols-7 gap-2 text-center text-xs text-zinc-500">
-          {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => (
-            <div className="rounded-md bg-zinc-950 py-2" key={day}>
+          {weekDays.map((day) => (
+            <div className="rounded-md border border-zinc-800 bg-zinc-950 py-2" key={day}>
               {day}
             </div>
           ))}
         </div>
         <div className="mt-2 grid grid-cols-7 gap-2">
-          {Array.from({ length: 28 }, (_, index) => (
-            <div className="min-h-20 rounded-md border border-zinc-800 bg-zinc-950 p-2 text-xs text-zinc-600" key={index}>
+          {weekDays.map((day, index) => (
+            <div className="min-h-32 rounded-md border border-zinc-800 bg-zinc-950 p-2 text-xs text-zinc-600" key={day}>
               {index + 1}
+              {tasks[index % Math.max(tasks.length, 1)] ? (
+                <div className="mt-3 rounded border border-emerald-400/20 bg-emerald-400/10 p-2 text-left text-emerald-100">
+                  <p className="line-clamp-2 font-medium">
+                    {tasks[index % Math.max(tasks.length, 1)].Title}
+                  </p>
+                  <p className="mt-1 text-[11px] text-emerald-200/70">
+                    {formatDate(tasks[index % Math.max(tasks.length, 1)].DueAt)}
+                  </p>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -626,9 +731,18 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
 function NotesView({ notes }: { notes: DashboardData['notes'] }) {
   return (
     <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <article className="rounded-md border border-zinc-800 bg-[#0f1117] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        <span className="rounded border border-sky-400/20 bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-200">
+          Capture
+        </span>
+        <h3 className="mt-4 text-lg font-semibold text-white">Kho ý tưởng nhanh</h3>
+        <p className="mt-2 text-sm leading-6 text-zinc-500">
+          Gom ghi chú, link, tài liệu và ý tưởng rời rạc vào một nơi trước khi biến thành task.
+        </p>
+      </article>
       {notes.length ? (
         notes.map((note) => (
-          <article className="rounded-md border border-zinc-800 bg-[#0f1117] p-4" key={note.ID}>
+          <article className="rounded-md border border-zinc-800 bg-[#0f1117] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={note.ID}>
             <p className="text-sm leading-6 text-zinc-300">{note.Content}</p>
             <div className="mt-4 flex items-center justify-between text-xs text-zinc-500">
               <span>{note.Project || 'Quick capture'}</span>
@@ -650,11 +764,31 @@ function FinanceView({
   expenseLabel: string
   finance: DashboardData['finance']
 }) {
+  const income = finance
+    .filter((item) => item.Type === 'income')
+    .reduce((total, item) => total + item.Amount, 0)
+  const expense = finance
+    .filter((item) => item.Type === 'expense')
+    .reduce((total, item) => total + item.Amount, 0)
+  const balance = income - expense
+
   return (
     <section className="grid gap-4 xl:grid-cols-[360px_1fr]">
       <Panel title="Tổng quan">
         <p className="text-3xl font-semibold text-white">{expenseLabel} VND</p>
         <p className="mt-1 text-sm text-zinc-500">Chi tuần này</p>
+        <div className="mt-5 grid gap-2">
+          {[
+            ['Thu', formatMoney(income), 'text-emerald-300'],
+            ['Chi', formatMoney(expense), 'text-rose-300'],
+            ['Còn lại', formatMoney(balance), balance >= 0 ? 'text-sky-300' : 'text-amber-300'],
+          ].map(([label, value, tone]) => (
+            <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2" key={label}>
+              <span className="text-sm text-zinc-500">{label}</span>
+              <span className={`text-sm font-semibold ${tone}`}>{value} VND</span>
+            </div>
+          ))}
+        </div>
         <button className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-md bg-zinc-100 px-3 text-sm font-medium text-zinc-950">
           <WalletCards size={16} />
           Ghi giao dịch
@@ -691,10 +825,12 @@ function AutomationView({ source }: { source: string }) {
         ['Morning report', 'Báo cáo công việc lúc 08:00 mỗi ngày', 'Ready'],
         ['Reminder scan', 'Quét nhắc việc và gửi thông báo Telegram', 'Ready'],
       ].map(([title, description, status]) => (
-        <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-4" key={title}>
+        <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={title}>
           <div className="flex items-center justify-between">
-            <Bot className="text-zinc-500" size={20} />
-            <span className="rounded bg-emerald-400/10 px-2 py-1 text-xs text-emerald-300">
+            <span className="grid size-10 place-items-center rounded-md border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
+              <Bot size={18} />
+            </span>
+            <span className="rounded bg-zinc-950 px-2 py-1 text-xs text-zinc-300">
               {status}
             </span>
           </div>
