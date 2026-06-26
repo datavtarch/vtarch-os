@@ -13,8 +13,11 @@ import {
   CreditCard,
   KanbanSquare,
   NotebookText,
+  Radio,
   Search,
   Send,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import {
   Area,
@@ -42,17 +45,23 @@ const stack = [
   'React',
   'Vite',
   'Tailwind',
-  'shadcn/ui',
   'TanStack Table',
   'Recharts',
-  'cmdk',
-  'Sonner',
   'Motion',
   'dnd-kit',
   'FullCalendar',
   'Google Apps Script',
   'Telegram Bot API',
 ]
+
+const navItems = [
+  ['Hôm nay', CheckCircle2],
+  ['Nhắc việc', Bell],
+  ['Ghi chú', NotebookText],
+  ['Tài chính', CreditCard],
+  ['Lịch', CalendarDays],
+  ['Bảng việc', KanbanSquare],
+] as const
 
 function App() {
   const [dashboard, setDashboard] = useState<DashboardData>(mockDashboardData)
@@ -113,64 +122,87 @@ function App() {
     dashboard.metrics.weeklyExpense,
   )
 
+  const stats = [
+    ['Hôm nay', `${dashboard.metrics.todayTasks} việc`, 'đang mở', 'cyan'],
+    ['Quá hạn', `${dashboard.metrics.overdueTasks} việc`, 'cần xem lại', 'amber'],
+    ['Tài chính', `${expenseLabel} VND`, 'đã chi tuần này', 'emerald'],
+    ['Ghi chú', `${dashboard.metrics.notes} mục`, 'có thể tìm kiếm', 'violet'],
+  ]
+
   return (
-    <main className="min-h-screen bg-[#f6f3ec] text-[#1d1f1c]">
-      <section className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 gap-6 px-5 py-6 lg:grid-cols-[280px_1fr]">
-        <aside className="rounded-lg border border-[#d8d1c3] bg-[#fffaf0] p-5 shadow-sm">
+    <main className="relative min-h-screen overflow-hidden bg-[#07090f] text-[#eef7ff]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(45,212,191,0.14),transparent_24%,rgba(244,114,182,0.10)_50%,transparent_72%,rgba(251,191,36,0.12)),linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:100%_100%,72px_72px,72px_72px]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/10 to-transparent" />
+
+      <section className="relative mx-auto grid min-h-screen max-w-7xl grid-cols-1 gap-5 px-4 py-5 lg:grid-cols-[280px_1fr]">
+        <aside className="rounded-lg border border-white/12 bg-white/[0.075] p-5 shadow-2xl shadow-black/30 backdrop-blur-2xl lg:sticky lg:top-5 lg:h-[calc(100vh-40px)]">
           <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-md bg-[#143c36] text-[#f5ead5]">
+            <div className="grid size-11 place-items-center rounded-lg border border-cyan-300/30 bg-cyan-300/15 text-cyan-100 shadow-lg shadow-cyan-950/30">
               <Send size={20} />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[#7c725f]">
-                VTARCH OS
+              <p className="text-xs uppercase tracking-[0.2em] text-cyan-100/65">
+                Personal OS
               </p>
-              <h1 className="text-xl font-semibold">VTARCH OS</h1>
+              <h1 className="text-xl font-semibold tracking-tight">VTARCH OS</h1>
             </div>
           </div>
 
-          <div className="mt-6 flex items-center gap-2 rounded-md border border-[#d8d1c3] bg-white px-3 py-2 text-sm text-[#7c725f]">
+          <div className="mt-6 flex min-h-11 items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-slate-200/75 shadow-inner shadow-black/30">
             <Search size={16} />
-            <span>Tìm công việc, ghi chú, tài chính...</span>
-            <kbd className="ml-auto rounded border px-1.5 text-[11px]">Ctrl K</kbd>
+            <span className="min-w-0 flex-1 truncate">
+              Tìm công việc, ghi chú, tài chính...
+            </span>
+            <kbd className="rounded-md border border-white/10 bg-white/10 px-1.5 text-[11px] text-slate-200/70">
+              Ctrl K
+            </kbd>
           </div>
 
-          <nav className="mt-6 space-y-2 text-sm">
-            {[
-              ['Hôm nay', CheckCircle2],
-              ['Nhắc việc', Bell],
-              ['Ghi chú', NotebookText],
-              ['Tài chính', CreditCard],
-              ['Lịch', CalendarDays],
-              ['Bảng việc', KanbanSquare],
-            ].map(([label, Icon]) => (
+          <nav className="mt-6 space-y-1.5 text-sm">
+            {navItems.map(([label, Icon], index) => (
               <button
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-[#4f4a40] hover:bg-[#efe7d6]"
-                key={label as string}
+                className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left transition duration-200 ${
+                  index === 0
+                    ? 'border border-cyan-300/25 bg-cyan-300/12 text-cyan-50 shadow-lg shadow-cyan-950/20'
+                    : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`}
+                key={label}
                 type="button"
               >
                 <Icon size={17} />
-                {label as string}
+                {label}
               </button>
             ))}
           </nav>
+
+          <div className="mt-6 rounded-lg border border-white/10 bg-black/20 p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-100">
+              <ShieldCheck size={16} />
+              Đồng bộ an toàn
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-300/70">
+              Telegram, Google Sheets và dashboard đang dùng cùng một nguồn dữ liệu.
+            </p>
+          </div>
         </aside>
 
-        <div className="space-y-6">
-          <header className="rounded-lg border border-[#d8d1c3] bg-[#143c36] p-6 text-[#fffaf0] shadow-sm">
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div className="space-y-5">
+          <header className="overflow-hidden rounded-lg border border-white/12 bg-white/[0.085] p-6 shadow-2xl shadow-black/30 backdrop-blur-2xl">
+            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
               <div>
-                <p className="text-sm uppercase tracking-[0.22em] text-[#cbbf9d]">
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.22em] text-cyan-100">
+                  <Radio size={14} />
                   Telegram + Google Sheets + Bảng điều khiển
-                </p>
-                <h2 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight md:text-5xl">
+                </div>
+                <h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight tracking-tight text-white md:text-6xl">
                   VTARCH OS đã sẵn sàng.
                 </h2>
-                <p className="mt-4 max-w-xl text-sm text-[#d7c9a5]">
-                  Nguồn dữ liệu: {source}. Bảng điều khiển đang đọc trực tiếp từ Google Sheets và Telegram bot.
+                <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
+                  Nguồn dữ liệu: <span className="text-cyan-100">{source}</span>.
+                  Bảng điều khiển đang đọc trực tiếp từ Google Sheets và Telegram bot.
                 </p>
               </div>
-              <button className="inline-flex items-center gap-2 rounded-md bg-[#f0b35b] px-4 py-2 text-sm font-semibold text-[#1d1f1c]">
+              <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#d9f99d] px-4 text-sm font-semibold text-[#10150d] shadow-lg shadow-lime-950/30 transition hover:-translate-y-0.5 hover:bg-[#ecfccb]">
                 <Command size={17} />
                 Sẵn sàng nhập lệnh
               </button>
@@ -178,35 +210,47 @@ function App() {
           </header>
 
           <section className="grid gap-4 md:grid-cols-4">
-            {[
-              ['Hôm nay', `${dashboard.metrics.todayTasks} việc`, 'đang mở'],
-              ['Quá hạn', `${dashboard.metrics.overdueTasks} việc`, 'cần xem lại'],
-              ['Tài chính', `${expenseLabel} VND`, 'đã chi tuần này'],
-              ['Ghi chú', `${dashboard.metrics.notes} mục`, 'có thể tìm kiếm'],
-            ].map(([title, value, meta]) => (
+            {stats.map(([title, value, meta, tone]) => (
               <div
-                className="rounded-lg border border-[#d8d1c3] bg-white p-4 shadow-sm"
+                className="rounded-lg border border-white/12 bg-white/[0.075] p-4 shadow-xl shadow-black/20 backdrop-blur-xl"
                 key={title}
               >
-                <p className="text-sm text-[#7c725f]">{title}</p>
-                <p className="mt-2 text-2xl font-semibold">{value}</p>
-                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[#9b8970]">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-slate-300">{title}</p>
+                  <span
+                    className={`size-2 rounded-full ${
+                      tone === 'cyan'
+                        ? 'bg-cyan-300'
+                        : tone === 'amber'
+                          ? 'bg-amber-300'
+                          : tone === 'emerald'
+                            ? 'bg-emerald-300'
+                            : 'bg-violet-300'
+                    }`}
+                  />
+                </div>
+                <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
+                  {value}
+                </p>
+                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-400">
                   {meta}
                 </p>
               </div>
             ))}
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
-            <div className="rounded-lg border border-[#d8d1c3] bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between">
+          <section className="grid gap-5 xl:grid-cols-[1fr_360px]">
+            <div className="rounded-lg border border-white/12 bg-white/[0.075] p-5 shadow-xl shadow-black/20 backdrop-blur-xl">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-semibold">Hiệu suất trong tuần</h3>
-                  <p className="text-sm text-[#7c725f]">
+                  <h3 className="text-lg font-semibold text-white">
+                    Hiệu suất trong tuần
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-300">
                     Theo dõi nhiệm vụ hoàn thành, việc còn lại và xu hướng năng suất.
                   </p>
                 </div>
-                <span className="rounded-md bg-[#e7f0df] px-3 py-1 text-sm text-[#315c38]">
+                <span className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-sm text-emerald-100">
                   +18%
                 </span>
               </div>
@@ -215,17 +259,29 @@ function App() {
                   <AreaChart data={chartData}>
                     <defs>
                       <linearGradient id="done" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="5%" stopColor="#143c36" stopOpacity={0.45} />
-                        <stop offset="95%" stopColor="#143c36" stopOpacity={0.02} />
+                        <stop offset="5%" stopColor="#67e8f9" stopOpacity={0.55} />
+                        <stop offset="95%" stopColor="#67e8f9" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="#eee5d3" vertical={false} />
-                    <XAxis dataKey="day" tickLine={false} />
-                    <Tooltip />
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <XAxis
+                      axisLine={false}
+                      dataKey="day"
+                      tick={{ fill: '#94a3b8', fontSize: 12 }}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'rgba(7, 9, 15, 0.88)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 8,
+                        color: '#eef7ff',
+                      }}
+                    />
                     <Area
                       dataKey="done"
                       fill="url(#done)"
-                      stroke="#143c36"
+                      stroke="#67e8f9"
                       strokeWidth={3}
                       type="monotone"
                     />
@@ -234,12 +290,15 @@ function App() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-[#d8d1c3] bg-[#fffaf0] p-5 shadow-sm">
-              <h3 className="text-lg font-semibold">Công nghệ đã cài</h3>
+            <div className="rounded-lg border border-white/12 bg-white/[0.075] p-5 shadow-xl shadow-black/20 backdrop-blur-xl">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-amber-200" size={18} />
+                <h3 className="text-lg font-semibold text-white">Công nghệ đã cài</h3>
+              </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {stack.map((item) => (
                   <span
-                    className="rounded-md border border-[#d8d1c3] bg-white px-2.5 py-1 text-sm text-[#4f4a40]"
+                    className="rounded-lg border border-white/10 bg-black/20 px-2.5 py-1 text-sm text-slate-200"
                     key={item}
                   >
                     {item}
@@ -249,22 +308,24 @@ function App() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-[#d8d1c3] bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-white/12 bg-white/[0.075] p-5 shadow-xl shadow-black/20 backdrop-blur-xl">
             <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
               <div>
-                <h3 className="text-lg font-semibold">Danh sách công việc</h3>
-                <p className="text-sm text-[#7c725f]">
+                <h3 className="text-lg font-semibold text-white">
+                  Danh sách công việc
+                </h3>
+                <p className="mt-1 text-sm text-slate-300">
                   Dữ liệu được đồng bộ từ Google Sheets, sẵn sàng lọc, sắp xếp và thao tác hàng loạt.
                 </p>
               </div>
-              <span className="rounded-md bg-[#efe7d6] px-3 py-1 text-sm text-[#4f4a40]">
+              <span className="rounded-lg border border-white/10 bg-white/10 px-3 py-1 text-sm text-slate-200">
                 {dashboard.tasks.length} dòng
               </span>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-md border border-[#d8d1c3]">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead className="bg-[#fffaf0] text-xs uppercase tracking-[0.14em] text-[#7c725f]">
+            <div className="mt-5 overflow-x-auto rounded-lg border border-white/10">
+              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                <thead className="bg-white/10 text-xs uppercase tracking-[0.14em] text-slate-300">
                   {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
@@ -282,9 +343,12 @@ function App() {
                 </thead>
                 <tbody>
                   {table.getRowModel().rows.map((row) => (
-                    <tr className="border-t border-[#eee5d3]" key={row.id}>
+                    <tr
+                      className="border-t border-white/10 transition hover:bg-white/[0.06]"
+                      key={row.id}
+                    >
                       {row.getVisibleCells().map((cell) => (
-                        <td className="px-4 py-3 text-[#4f4a40]" key={cell.id}>
+                        <td className="px-4 py-3 text-slate-200" key={cell.id}>
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
