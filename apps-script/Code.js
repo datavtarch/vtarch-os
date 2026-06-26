@@ -63,14 +63,25 @@ function handleRequest(event, method) {
 }
 
 function handleTelegramUpdate(update) {
+  if (isDuplicateTelegramUpdate(update)) {
+    return json({ ok: true, duplicate: true })
+  }
+
   const message = update.message || {}
   const text = (message.text || '').trim()
   const userId = message.from && String(message.from.id)
   const chatId = message.chat && message.chat.id
 
+  captureTelegramIdentity(userId, chatId)
+
   if (!isAllowedTelegramUser(userId)) {
     sendTelegramMessage(chatId, 'Bạn chưa được cấp quyền dùng bot này.')
     return json({ ok: true, ignored: true })
+  }
+
+  if (text.startsWith('/start')) {
+    sendTelegramMessage(chatId, 'VTARCH OS đã sẵn sàng. Gửi task, /today, /note hoặc /chi để bắt đầu.')
+    return json({ ok: true })
   }
 
   if (text.startsWith('/today')) {
@@ -102,6 +113,25 @@ function handleTelegramUpdate(update) {
   const task = createTask(parseTaskText(text))
   sendTelegramMessage(chatId, `Đã tạo task ${task.ID}: ${task.Title}`)
   return json({ ok: true })
+}
+
+function isDuplicateTelegramUpdate(update) {
+  if (!update.update_id) return false
+  const cache = CacheService.getScriptCache()
+  const key = `tg_update_${update.update_id}`
+  if (cache.get(key)) return true
+  cache.put(key, '1', 21600)
+  return false
+}
+
+function captureTelegramIdentity(userId, chatId) {
+  if (!userId && !chatId) return
+  if (userId && !getSetting('TELEGRAM_ALLOWED_USER_ID')) {
+    setSettingValue('TELEGRAM_ALLOWED_USER_ID', userId, 'Only this Telegram user can control the bot')
+  }
+  if (chatId && !getSetting('TELEGRAM_CHAT_ID')) {
+    setSettingValue('TELEGRAM_CHAT_ID', String(chatId), 'Default chat for reports and reminders')
+  }
 }
 
 function getDashboardData() {
@@ -268,6 +298,19 @@ function getSetting(key) {
   const item = settings.find((row) => row.Key === key)
   const value = item && item.Value
   return value || PropertiesService.getScriptProperties().getProperty(key) || ''
+}
+
+function setSettingValue(key, value, note) {
+  const sheet = getSheet('Settings')
+  const values = sheet.getDataRange().getValues()
+  for (let i = 1; i < values.length; i += 1) {
+    if (values[i][0] === key) {
+      sheet.getRange(i + 1, 2).setValue(value)
+      if (note) sheet.getRange(i + 1, 3).setValue(note)
+      return
+    }
+  }
+  sheet.appendRow([key, value, note || ''])
 }
 
 function isAllowedTelegramUser(userId) {
