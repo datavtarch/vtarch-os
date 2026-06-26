@@ -1,4 +1,26 @@
-# React + TypeScript + Vite
+# VTARCH OS
+
+Personal operating system for tasks, reminders, notes, finance, Telegram input, Google Sheets storage, and a React dashboard.
+
+## Live Google Assets
+
+- Google Sheet: https://docs.google.com/spreadsheets/d/1rkx-MQGgihutVDQjIfhDuPsuqBrFJc2IyLQZI6w1pps/edit
+- Apps Script project: https://script.google.com/home/projects/1cVQkXjH_GrwvjmvLNoHQGvmkqEI5jvBLvkhZHIWxEV5g_CkY5DN2BQSj/edit
+- Web App API: set in `.env` as `VITE_APPS_SCRIPT_URL`
+
+## Local Development
+
+```bash
+npm.cmd install
+npm.cmd run dev -- --host 127.0.0.1
+```
+
+## Verification
+
+```bash
+npm.cmd run build
+npm.cmd run lint
+```
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
