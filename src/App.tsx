@@ -115,8 +115,15 @@ function App() {
   useEffect(() => {
     getDashboardData()
       .then((data) => {
-        setDashboard(data)
-        setSource(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Google Sheets' : 'dữ liệu mẫu')
+        const hasRows = data.tasks.length || data.notes.length || data.finance.length
+        setDashboard(hasRows ? data : mockDashboardData)
+        setSource(
+          import.meta.env.VITE_APPS_SCRIPT_URL
+            ? hasRows
+              ? 'Google Sheets'
+              : 'Google Sheets · dữ liệu mẫu'
+            : 'dữ liệu mẫu',
+        )
       })
       .catch(() => {
         setDashboard(mockDashboardData)
@@ -596,7 +603,7 @@ function App() {
                   VTARCH OS · {activeMeta.label}
                 </div>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white md:text-4xl">
-                  Một app cá nhân có menu, tab và workflow rõ ràng.
+                  Không gian điều hành công việc cá nhân, gọn như một app thật.
                 </h2>
               </div>
               <div className="flex flex-wrap gap-2">
