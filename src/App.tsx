@@ -336,15 +336,15 @@ function OverviewView({
       <FocusHero selectedTask={selectedTask} tasks={tasks} />
       <QuickActions setActiveView={setActiveView} />
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="grid grid-cols-4 gap-2 rounded-md border border-zinc-800 bg-[#0f1117]/80 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.14)] md:gap-3 md:p-3">
         {metrics.map(([title, value, meta, Icon]) => (
-          <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4" key={title}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500 md:text-sm md:normal-case md:tracking-normal">{title}</p>
-              <Icon className="text-zinc-500" size={17} />
+          <div className="min-w-0 rounded border border-zinc-800/80 bg-zinc-950/70 p-2 md:p-3" key={title}>
+            <div className="flex items-center gap-1.5 md:justify-between">
+              <Icon className="shrink-0 text-zinc-500" size={14} />
+              <p className="min-w-0 truncate text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-500 md:text-xs">{title}</p>
             </div>
-            <p className="mt-3 text-2xl font-semibold text-white">{value}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.14em] text-zinc-600">{meta}</p>
+            <p className="mt-2 truncate text-xl font-semibold text-white md:text-2xl">{value}</p>
+            <p className="mt-0.5 hidden truncate text-xs uppercase tracking-[0.12em] text-zinc-600 sm:block">{meta}</p>
           </div>
         ))}
       </section>
@@ -455,22 +455,43 @@ function QuickActions({ setActiveView }: { setActiveView: (view: ViewId) => void
     },
   ]
 
+  const [primaryAction, ...secondaryActions] = actions
+  const PrimaryIcon = primaryAction.icon
+
   return (
-    <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      {actions.map(({ accent, description, icon: Icon, label, target }) => (
+    <section className="grid gap-3 md:grid-cols-[1.35fr_2fr]">
+      <button
+        className="group relative overflow-hidden rounded-md border border-emerald-300/30 bg-emerald-300 px-4 py-4 text-left text-zinc-950 shadow-[0_24px_70px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+        onClick={() => setActiveView(primaryAction.target)}
+        type="button"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute -right-10 -top-10 size-28 rounded-full bg-white/25 blur-2xl"
+        />
+        <span className="relative inline-flex size-10 items-center justify-center rounded-md bg-zinc-950 text-emerald-200">
+          <PrimaryIcon size={18} />
+        </span>
+        <span className="relative mt-4 block text-lg font-bold">{primaryAction.label}</span>
+        <span className="relative mt-1 block text-sm text-zinc-800">{primaryAction.description}</span>
+      </button>
+
+      <div className="grid grid-cols-3 gap-2">
+        {secondaryActions.map(({ accent, description, icon: Icon, label, target }) => (
         <button
-          className="group overflow-hidden rounded-md border border-zinc-800 bg-[#0f1117] p-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.18)] transition hover:-translate-y-0.5 hover:border-zinc-600"
+          className="group overflow-hidden rounded-md border border-zinc-800 bg-[#0f1117] p-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:border-zinc-600"
           key={label}
           onClick={() => setActiveView(target)}
           type="button"
         >
-          <span className={`inline-flex size-9 items-center justify-center rounded-md bg-gradient-to-br ${accent}`}>
-            <Icon size={17} />
+          <span className={`inline-flex size-8 items-center justify-center rounded-md bg-gradient-to-br ${accent}`}>
+            <Icon size={16} />
           </span>
-          <span className="mt-3 block text-sm font-semibold text-white">{label}</span>
-          <span className="mt-1 block text-xs text-zinc-500">{description}</span>
+          <span className="mt-3 block truncate text-sm font-semibold text-white">{label}</span>
+          <span className="mt-1 hidden text-xs text-zinc-500 sm:block">{description}</span>
         </button>
-      ))}
+        ))}
+      </div>
     </section>
   )
 }
@@ -681,28 +702,54 @@ function TaskDetail({ task }: { task?: Task }) {
 
 function CalendarView({ tasks }: { tasks: Task[] }) {
   const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+  const weekItems = weekDays.map((day, index) => ({
+    day,
+    task: tasks[index % Math.max(tasks.length, 1)],
+  }))
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
       <Panel title="Lịch tuần">
-        <div className="grid grid-cols-7 gap-2 text-center text-xs text-zinc-500">
+        <div className="space-y-2 md:hidden">
+          {weekItems.map(({ day, task }, index) => (
+            <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3" key={day}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{day}</p>
+                  <p className="mt-1 text-sm font-semibold text-white">Ngày {index + 1}</p>
+                </div>
+                <span className="rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-400">
+                  {task ? formatDate(task.DueAt) : 'Trống'}
+                </span>
+              </div>
+              {task ? (
+                <div className="mt-3 rounded-md border border-emerald-400/20 bg-emerald-400/10 p-3">
+                  <p className="text-sm font-medium leading-5 text-emerald-100">{task.Title}</p>
+                  <p className="mt-1 text-xs text-emerald-200/70">{task.Project || 'Personal OS'}</p>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden grid-cols-7 gap-2 text-center text-xs text-zinc-500 md:grid">
           {weekDays.map((day) => (
             <div className="rounded-md border border-zinc-800 bg-zinc-950 py-2" key={day}>
               {day}
             </div>
           ))}
         </div>
-        <div className="mt-2 grid grid-cols-7 gap-2">
-          {weekDays.map((day, index) => (
+        <div className="mt-2 hidden grid-cols-7 gap-2 md:grid">
+          {weekItems.map(({ day, task }, index) => (
             <div className="min-h-32 rounded-md border border-zinc-800 bg-zinc-950 p-2 text-xs text-zinc-600" key={day}>
               {index + 1}
-              {tasks[index % Math.max(tasks.length, 1)] ? (
+              {task ? (
                 <div className="mt-3 rounded border border-emerald-400/20 bg-emerald-400/10 p-2 text-left text-emerald-100">
                   <p className="line-clamp-2 font-medium">
-                    {tasks[index % Math.max(tasks.length, 1)].Title}
+                    {task.Title}
                   </p>
                   <p className="mt-1 text-[11px] text-emerald-200/70">
-                    {formatDate(tasks[index % Math.max(tasks.length, 1)].DueAt)}
+                    {formatDate(task.DueAt)}
                   </p>
                 </div>
               ) : null}
