@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   ArrowUpRight,
   Bell,
@@ -18,6 +18,7 @@ import {
   Settings,
   TrendingUp,
   WalletCards,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -33,6 +34,14 @@ import { mockDashboardData } from '@/lib/mock-data'
 import type { DashboardData, Task } from '@/types'
 
 type ViewId = 'overview' | 'tasks' | 'calendar' | 'notes' | 'finance' | 'automation'
+
+type TaskDraft = {
+  dueAt: string
+  note: string
+  priority: Task['Priority']
+  project: string
+  title: string
+}
 
 const views: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
   { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard },
@@ -96,6 +105,7 @@ function App() {
   const [source, setSource] = useState('dữ liệu mẫu')
   const [activeView, setActiveView] = useState<ViewId>('overview')
   const [selectedTaskId, setSelectedTaskId] = useState<string>(mockDashboardData.tasks[0]?.ID || '')
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
 
   useEffect(() => {
     getDashboardData()
@@ -148,6 +158,36 @@ function App() {
 
   const activeLabel = views.find((view) => view.id === activeView)?.label || 'Tổng quan'
 
+  const handleCreateTask = (draft: TaskDraft) => {
+    const now = new Date().toISOString()
+    const task: Task = {
+      ID: `local-${Date.now()}`,
+      Title: draft.title.trim(),
+      Status: 'Inbox',
+      Priority: draft.priority,
+      Project: draft.project.trim() || 'Personal OS',
+      Tags: '',
+      DueAt: draft.dueAt ? new Date(draft.dueAt).toISOString() : '',
+      RemindAt: '',
+      Note: draft.note.trim(),
+      CreatedAt: now,
+      DoneAt: '',
+      Source: 'Web',
+    }
+
+    setDashboard((current) => ({
+      ...current,
+      tasks: [task, ...current.tasks],
+      metrics: {
+        ...current.metrics,
+        todayTasks: current.metrics.todayTasks + 1,
+      },
+    }))
+    setSelectedTaskId(task.ID)
+    setActiveView('tasks')
+    setIsQuickAddOpen(false)
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#08090c] pb-20 text-zinc-100 lg:pb-0">
       <div
@@ -163,13 +203,19 @@ function App() {
         <Sidebar activeView={activeView} setActiveView={setActiveView} source={source} />
 
         <section className="min-w-0 border-zinc-800/80 lg:border-l">
-          <Topbar activeLabel={activeLabel} activeView={activeView} setActiveView={setActiveView} />
+          <Topbar
+            activeLabel={activeLabel}
+            activeView={activeView}
+            onQuickAdd={() => setIsQuickAddOpen(true)}
+            setActiveView={setActiveView}
+          />
 
           <div className="p-3 md:p-5">
             {activeView === 'overview' && (
               <OverviewView
                 board={board}
                 metrics={metrics}
+                onQuickAdd={() => setIsQuickAddOpen(true)}
                 selectedTask={selectedTask}
                 setActiveView={setActiveView}
                 setSelectedTaskId={setSelectedTaskId}
@@ -178,6 +224,7 @@ function App() {
             )}
             {activeView === 'tasks' && (
               <TasksView
+                onQuickAdd={() => setIsQuickAddOpen(true)}
                 selectedTask={selectedTask}
                 setSelectedTaskId={setSelectedTaskId}
                 tasks={dashboard.tasks}
@@ -193,6 +240,11 @@ function App() {
         </section>
       </div>
 
+      <QuickAddSheet
+        isOpen={isQuickAddOpen}
+        onClose={() => setIsQuickAddOpen(false)}
+        onCreate={handleCreateTask}
+      />
       <MobileNav activeView={activeView} setActiveView={setActiveView} />
     </main>
   )
@@ -267,10 +319,12 @@ function Sidebar({
 function Topbar({
   activeLabel,
   activeView,
+  onQuickAdd,
   setActiveView,
 }: {
   activeLabel: string
   activeView: ViewId
+  onQuickAdd: () => void
   setActiveView: (view: ViewId) => void
 }) {
   return (
@@ -287,7 +341,7 @@ function Topbar({
           </button>
           <button
             className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-emerald-100"
-            onClick={() => setActiveView('tasks')}
+            onClick={onQuickAdd}
             type="button"
           >
             <Plus size={15} />
@@ -319,6 +373,7 @@ function Topbar({
 function OverviewView({
   board,
   metrics,
+  onQuickAdd,
   selectedTask,
   setActiveView,
   setSelectedTaskId,
@@ -326,6 +381,7 @@ function OverviewView({
 }: {
   board: ReadonlyArray<readonly [string, number, string]>
   metrics: ReadonlyArray<readonly [string, string | number, string, LucideIcon]>
+  onQuickAdd: () => void
   selectedTask?: Task
   setActiveView: (view: ViewId) => void
   setSelectedTaskId: (id: string) => void
@@ -334,7 +390,7 @@ function OverviewView({
   return (
     <div className="space-y-4">
       <FocusHero selectedTask={selectedTask} tasks={tasks} />
-      <QuickActions setActiveView={setActiveView} />
+      <QuickActions onQuickAdd={onQuickAdd} setActiveView={setActiveView} />
 
       <section className="grid grid-cols-4 gap-2 rounded-md border border-zinc-800 bg-[#0f1117]/80 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.14)] md:gap-3 md:p-3">
         {metrics.map(([title, value, meta, Icon]) => (
@@ -417,7 +473,13 @@ function OverviewView({
   )
 }
 
-function QuickActions({ setActiveView }: { setActiveView: (view: ViewId) => void }) {
+function QuickActions({
+  onQuickAdd,
+  setActiveView,
+}: {
+  onQuickAdd: () => void
+  setActiveView: (view: ViewId) => void
+}) {
   const actions: Array<{
     accent: string
     description: string
@@ -462,7 +524,7 @@ function QuickActions({ setActiveView }: { setActiveView: (view: ViewId) => void
     <section className="grid gap-3 md:grid-cols-[1.35fr_2fr]">
       <button
         className="group relative overflow-hidden rounded-md border border-emerald-300/30 bg-emerald-300 px-4 py-4 text-left text-zinc-950 shadow-[0_24px_70px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
-        onClick={() => setActiveView(primaryAction.target)}
+        onClick={onQuickAdd}
         type="button"
       >
         <span
@@ -563,17 +625,19 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
 }
 
 function TasksView({
+  onQuickAdd,
   selectedTask,
   setSelectedTaskId,
   tasks,
 }: {
+  onQuickAdd: () => void
   selectedTask?: Task
   setSelectedTaskId: (id: string) => void
   tasks: Task[]
 }) {
   return (
     <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
-      <Panel title="Công việc" action="Thêm task">
+      <Panel title="Công việc" action="Thêm task" onAction={onQuickAdd}>
         <TaskList selectedId={selectedTask?.ID} setSelectedTaskId={setSelectedTaskId} tasks={tasks} />
       </Panel>
       <TaskDetail task={selectedTask} />
@@ -704,7 +768,7 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
   const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
   const weekItems = weekDays.map((day, index) => ({
     day,
-    task: tasks[index % Math.max(tasks.length, 1)],
+    task: tasks[index],
   }))
 
   return (
@@ -889,6 +953,142 @@ function AutomationView({ source }: { source: string }) {
         <p className="text-sm text-zinc-400">Nguồn hiện tại: {source}</p>
       </div>
     </section>
+  )
+}
+
+function QuickAddSheet({
+  isOpen,
+  onClose,
+  onCreate,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onCreate: (draft: TaskDraft) => void
+}) {
+  const [draft, setDraft] = useState<TaskDraft>({
+    dueAt: '',
+    note: '',
+    priority: 'P2',
+    project: '',
+    title: '',
+  })
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!draft.title.trim()) return
+    onCreate(draft)
+    setDraft({
+      dueAt: '',
+      note: '',
+      priority: 'P2',
+      project: '',
+      title: '',
+    })
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end bg-black/60 p-2 backdrop-blur-sm md:items-center md:justify-center">
+      <form
+        className="w-full rounded-xl border border-zinc-800 bg-[#101218] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42)] md:max-w-lg"
+        onSubmit={handleSubmit}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">Ghi nhanh</p>
+            <h3 className="mt-1 text-xl font-semibold text-white">Thêm việc mới</h3>
+          </div>
+          <button
+            className="grid size-9 place-items-center rounded-md border border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={17} />
+          </button>
+        </div>
+
+        <label className="mt-4 block">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Việc cần làm</span>
+          <input
+            autoFocus
+            className="mt-2 min-h-12 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-base text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
+            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+            placeholder="Ví dụ: Gọi khách xác nhận bản vẽ"
+            value={draft.title}
+          />
+        </label>
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Dự án</span>
+            <input
+              className="mt-2 min-h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
+              onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
+              placeholder="Personal OS"
+              value={draft.project}
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Ưu tiên</span>
+            <select
+              className="mt-2 min-h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  priority: event.target.value as Task['Priority'],
+                }))
+              }
+              value={draft.priority}
+            >
+              <option value="P1">P1 - Gấp</option>
+              <option value="P2">P2 - Quan trọng</option>
+              <option value="P3">P3 - Bình thường</option>
+            </select>
+          </label>
+        </div>
+
+        <label className="mt-3 block">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Hạn xử lý</span>
+          <input
+            className="mt-2 min-h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
+            onChange={(event) => setDraft((current) => ({ ...current, dueAt: event.target.value }))}
+            type="datetime-local"
+            value={draft.dueAt}
+          />
+        </label>
+
+        <label className="mt-3 block">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Ghi chú</span>
+          <textarea
+            className="mt-2 min-h-20 w-full resize-none rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
+            onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
+            placeholder="Thông tin thêm nếu cần"
+            value={draft.note}
+          />
+        </label>
+
+        <div className="mt-4 grid grid-cols-[1fr_1.4fr] gap-2">
+          <button
+            className="min-h-11 rounded-md border border-zinc-800 text-sm font-medium text-zinc-300"
+            onClick={onClose}
+            type="button"
+          >
+            Đóng
+          </button>
+          <button
+            className="min-h-11 rounded-md bg-emerald-300 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!draft.title.trim()}
+            type="submit"
+          >
+            Tạo việc
+          </button>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-zinc-500">
+          Việc mới hiển thị ngay trong phiên app. Lưu lâu dài sẽ đi qua Google Sheets/Telegram backend.
+        </p>
+      </form>
+    </div>
   )
 }
 
