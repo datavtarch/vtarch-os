@@ -29,13 +29,13 @@ import { mockDashboardData } from '@/lib/mock-data'
 import type { DashboardData, Task } from '@/types'
 
 const chartData = [
-  { day: 'Mon', done: 3 },
-  { day: 'Tue', done: 5 },
-  { day: 'Wed', done: 4 },
-  { day: 'Thu', done: 7 },
-  { day: 'Fri', done: 6 },
-  { day: 'Sat', done: 2 },
-  { day: 'Sun', done: 4 },
+  { day: 'T2', done: 3 },
+  { day: 'T3', done: 5 },
+  { day: 'T4', done: 4 },
+  { day: 'T5', done: 7 },
+  { day: 'T6', done: 6 },
+  { day: 'T7', done: 2 },
+  { day: 'CN', done: 4 },
 ]
 
 const stack = [
@@ -56,17 +56,17 @@ const stack = [
 
 function App() {
   const [dashboard, setDashboard] = useState<DashboardData>(mockDashboardData)
-  const [source, setSource] = useState('mock data')
+  const [source, setSource] = useState('dữ liệu mẫu')
 
   useEffect(() => {
     getDashboardData()
       .then((data) => {
         setDashboard(data)
-        setSource(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Google Sheets' : 'mock data')
+        setSource(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Google Sheets' : 'dữ liệu mẫu')
       })
       .catch(() => {
         setDashboard(mockDashboardData)
-        setSource('mock data')
+        setSource('dữ liệu mẫu')
       })
   }, [])
 
@@ -74,19 +74,30 @@ function App() {
     () => [
       {
         accessorKey: 'Title',
-        header: 'Task',
+        header: 'Công việc',
       },
       {
         accessorKey: 'Status',
-        header: 'Status',
+        header: 'Trạng thái',
+        cell: ({ getValue }) => {
+          const status = String(getValue())
+          const labels: Record<string, string> = {
+            Inbox: 'Mới',
+            Doing: 'Đang làm',
+            Waiting: 'Đang chờ',
+            Done: 'Hoàn thành',
+            Cancelled: 'Đã hủy',
+          }
+          return labels[status] || status
+        },
       },
       {
         accessorKey: 'Priority',
-        header: 'Priority',
+        header: 'Ưu tiên',
       },
       {
         accessorKey: 'Project',
-        header: 'Project',
+        header: 'Dự án',
       },
     ],
     [],
@@ -120,18 +131,18 @@ function App() {
 
           <div className="mt-6 flex items-center gap-2 rounded-md border border-[#d8d1c3] bg-white px-3 py-2 text-sm text-[#7c725f]">
             <Search size={16} />
-            <span>Search task, note, money...</span>
+            <span>Tìm công việc, ghi chú, tài chính...</span>
             <kbd className="ml-auto rounded border px-1.5 text-[11px]">Ctrl K</kbd>
           </div>
 
           <nav className="mt-6 space-y-2 text-sm">
             {[
-              ['Today', CheckCircle2],
-              ['Reminder', Bell],
-              ['Notes', NotebookText],
-              ['Finance', CreditCard],
-              ['Calendar', CalendarDays],
-              ['Kanban', KanbanSquare],
+              ['Hôm nay', CheckCircle2],
+              ['Nhắc việc', Bell],
+              ['Ghi chú', NotebookText],
+              ['Tài chính', CreditCard],
+              ['Lịch', CalendarDays],
+              ['Bảng việc', KanbanSquare],
             ].map(([label, Icon]) => (
               <button
                 className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-[#4f4a40] hover:bg-[#efe7d6]"
@@ -150,29 +161,28 @@ function App() {
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
               <div>
                 <p className="text-sm uppercase tracking-[0.22em] text-[#cbbf9d]">
-                  Telegram + Sheets + Dashboard
+                  Telegram + Google Sheets + Bảng điều khiển
                 </p>
                 <h2 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight md:text-5xl">
-                  Your personal operating system is ready.
+                  VTARCH OS đã sẵn sàng.
                 </h2>
                 <p className="mt-4 max-w-xl text-sm text-[#d7c9a5]">
-                  Data source: {source}. Add your Apps Script URL in
-                  .env to switch this dashboard to live Google Sheets.
+                  Nguồn dữ liệu: {source}. Bảng điều khiển đang đọc trực tiếp từ Google Sheets và Telegram bot.
                 </p>
               </div>
               <button className="inline-flex items-center gap-2 rounded-md bg-[#f0b35b] px-4 py-2 text-sm font-semibold text-[#1d1f1c]">
                 <Command size={17} />
-                Command ready
+                Sẵn sàng nhập lệnh
               </button>
             </div>
           </header>
 
           <section className="grid gap-4 md:grid-cols-4">
             {[
-              ['Today', `${dashboard.metrics.todayTasks} tasks`, 'open now'],
-              ['Overdue', `${dashboard.metrics.overdueTasks} tasks`, 'needs review'],
-              ['Finance', `${expenseLabel} VND`, 'spent this week'],
-              ['Notes', `${dashboard.metrics.notes} items`, 'searchable'],
+              ['Hôm nay', `${dashboard.metrics.todayTasks} việc`, 'đang mở'],
+              ['Quá hạn', `${dashboard.metrics.overdueTasks} việc`, 'cần xem lại'],
+              ['Tài chính', `${expenseLabel} VND`, 'đã chi tuần này'],
+              ['Ghi chú', `${dashboard.metrics.notes} mục`, 'có thể tìm kiếm'],
             ].map(([title, value, meta]) => (
               <div
                 className="rounded-lg border border-[#d8d1c3] bg-white p-4 shadow-sm"
@@ -191,9 +201,9 @@ function App() {
             <div className="rounded-lg border border-[#d8d1c3] bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold">Weekly momentum</h3>
+                  <h3 className="text-lg font-semibold">Hiệu suất trong tuần</h3>
                   <p className="text-sm text-[#7c725f]">
-                    Recharts is wired and ready for productivity analytics.
+                    Theo dõi nhiệm vụ hoàn thành, việc còn lại và xu hướng năng suất.
                   </p>
                 </div>
                 <span className="rounded-md bg-[#e7f0df] px-3 py-1 text-sm text-[#315c38]">
@@ -225,7 +235,7 @@ function App() {
             </div>
 
             <div className="rounded-lg border border-[#d8d1c3] bg-[#fffaf0] p-5 shadow-sm">
-              <h3 className="text-lg font-semibold">Installed stack</h3>
+              <h3 className="text-lg font-semibold">Công nghệ đã cài</h3>
               <div className="mt-4 flex flex-wrap gap-2">
                 {stack.map((item) => (
                   <span
@@ -242,13 +252,13 @@ function App() {
           <section className="rounded-lg border border-[#d8d1c3] bg-white p-5 shadow-sm">
             <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
               <div>
-                <h3 className="text-lg font-semibold">Task table</h3>
+                <h3 className="text-lg font-semibold">Danh sách công việc</h3>
                 <p className="text-sm text-[#7c725f]">
-                  TanStack Table is wired for sorting, filtering, grouping, and bulk actions.
+                  Dữ liệu được đồng bộ từ Google Sheets, sẵn sàng lọc, sắp xếp và thao tác hàng loạt.
                 </p>
               </div>
               <span className="rounded-md bg-[#efe7d6] px-3 py-1 text-sm text-[#4f4a40]">
-                {dashboard.tasks.length} rows
+                {dashboard.tasks.length} dòng
               </span>
             </div>
 
