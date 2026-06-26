@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   const appsScript = appsScriptUrl ? new URL(appsScriptUrl) : null
 
   return {
+    base: process.env.GITHUB_ACTIONS ? '/vtarch-os/' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
