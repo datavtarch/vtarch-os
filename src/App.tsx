@@ -9,10 +9,8 @@ import {
   Circle,
   CreditCard,
   LayoutDashboard,
-  MoreHorizontal,
   NotebookText,
   Plus,
-  Search,
   Send,
   TrendingUp,
   WalletCards,
@@ -27,11 +25,12 @@ import {
   Tooltip,
   XAxis,
 } from 'recharts'
-import { getDashboardData } from '@/lib/api'
+import { createTask, getDashboardData, updateTaskStatus } from '@/lib/api'
 import { mockDashboardData } from '@/lib/mock-data'
 import type { DashboardData, Task } from '@/types'
 
 type ViewId = 'overview' | 'tasks' | 'calendar' | 'notes' | 'finance' | 'automation'
+type SyncState = 'loading' | 'ready' | 'saving' | 'error'
 
 type TaskDraft = {
   dueAt: string
@@ -98,18 +97,41 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value)
 }
 
+function withFreshMetrics(data: DashboardData): DashboardData {
+  const openTasks = data.tasks.filter((task) => !['Done', 'Cancelled'].includes(task.Status))
+  const overdueTasks = openTasks.filter((task) => task.DueAt && new Date(task.DueAt) < new Date())
+  const weeklyExpense = data.finance
+    .filter((item) => item.Type === 'expense')
+    .reduce((sum, item) => sum + Number(item.Amount || 0), 0)
+
+  return {
+    ...data,
+    metrics: {
+      todayTasks: openTasks.length,
+      overdueTasks: overdueTasks.length,
+      weeklyExpense,
+      notes: data.notes.length,
+    },
+  }
+}
+
 function App() {
   const [dashboard, setDashboard] = useState<DashboardData>(mockDashboardData)
   const [source, setSource] = useState('dữ liệu mẫu')
+  const [syncState, setSyncState] = useState<SyncState>('loading')
+  const [syncMessage, setSyncMessage] = useState('Đang tải dữ liệu')
   const [activeView, setActiveView] = useState<ViewId>('overview')
   const [selectedTaskId, setSelectedTaskId] = useState<string>(mockDashboardData.tasks[0]?.ID || '')
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [busyTaskId, setBusyTaskId] = useState('')
 
   useEffect(() => {
+    setSyncState('loading')
+    setSyncMessage('Đang tải dữ liệu')
     getDashboardData()
       .then((data) => {
         const hasRows = data.tasks.length || data.notes.length || data.finance.length
-        const nextDashboard = hasRows ? data : mockDashboardData
+        const nextDashboard = withFreshMetrics(hasRows ? data : mockDashboardData)
         setDashboard(nextDashboard)
         setSelectedTaskId(nextDashboard.tasks[0]?.ID || '')
         setSource(
@@ -119,11 +141,15 @@ function App() {
               : 'Google Sheets · dữ liệu mẫu'
             : 'dữ liệu mẫu',
         )
+        setSyncState('ready')
+        setSyncMessage(hasRows ? 'Đã đồng bộ' : 'Đang dùng dữ liệu mẫu')
       })
-      .catch(() => {
-        setDashboard(mockDashboardData)
+      .catch((error) => {
+        setDashboard(withFreshMetrics(mockDashboardData))
         setSelectedTaskId(mockDashboardData.tasks[0]?.ID || '')
         setSource('dữ liệu mẫu')
+        setSyncState('error')
+        setSyncMessage(error instanceof Error ? error.message : 'Không tải được dữ liệu')
       })
   }, [])
 
@@ -156,34 +182,69 @@ function App() {
 
   const activeLabel = views.find((view) => view.id === activeView)?.label || 'Tổng quan'
 
-  const handleCreateTask = (draft: TaskDraft) => {
-    const now = new Date().toISOString()
-    const task: Task = {
-      ID: `local-${Date.now()}`,
-      Title: draft.title.trim(),
-      Status: 'Inbox',
-      Priority: draft.priority,
-      Project: draft.project.trim() || 'Personal OS',
-      Tags: '',
-      DueAt: draft.dueAt ? new Date(draft.dueAt).toISOString() : '',
-      RemindAt: '',
-      Note: draft.note.trim(),
-      CreatedAt: now,
-      DoneAt: '',
-      Source: 'Web',
-    }
+  const handleCreateTask = async (draft: TaskDraft) => {
+    setSyncState('saving')
+    setSyncMessage('Đang lưu việc mới')
+    try {
+      const task = await createTask({
+        Title: draft.title.trim(),
+        Priority: draft.priority,
+        Project: draft.project.trim() || 'Personal OS',
+        DueAt: draft.dueAt ? new Date(draft.dueAt).toISOString() : '',
+        Note: draft.note.trim(),
+        Source: 'Web',
+      })
 
-    setDashboard((current) => ({
-      ...current,
-      tasks: [task, ...current.tasks],
-      metrics: {
-        ...current.metrics,
-        todayTasks: current.metrics.todayTasks + 1,
-      },
-    }))
-    setSelectedTaskId(task.ID)
-    setActiveView('tasks')
-    setIsQuickAddOpen(false)
+      setDashboard((current) =>
+        withFreshMetrics({
+          ...current,
+          tasks: [task, ...current.tasks.filter((item) => item.ID !== task.ID)],
+        }),
+      )
+      setSelectedTaskId(task.ID)
+      setActiveView('tasks')
+      setIsQuickAddOpen(false)
+      setSource(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Google Sheets' : 'dữ liệu mẫu')
+      setSyncState('ready')
+      setSyncMessage(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Đã lưu vào Google Sheets' : 'Đã lưu tạm')
+      return true
+    } catch (error) {
+      setSyncState('error')
+      setSyncMessage(error instanceof Error ? error.message : 'Không lưu được việc mới')
+      return false
+    }
+  }
+
+  const handleTaskStatusChange = async (task: Task, status: Task['Status']) => {
+    if (task.Status === status || busyTaskId) return
+
+    setBusyTaskId(task.ID)
+    setSyncState('saving')
+    setSyncMessage('Đang cập nhật task')
+    try {
+      const updatedTask = await updateTaskStatus(task.ID, status)
+      const nextTask = updatedTask || {
+        ...task,
+        Status: status,
+        DoneAt: status === 'Done' ? new Date().toISOString() : '',
+      }
+
+      setDashboard((current) =>
+        withFreshMetrics({
+          ...current,
+          tasks: current.tasks.map((item) => (item.ID === task.ID ? nextTask : item)),
+        }),
+      )
+      setSelectedTaskId(nextTask.ID)
+      setSource(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Google Sheets' : 'dữ liệu mẫu')
+      setSyncState('ready')
+      setSyncMessage(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Đã cập nhật Google Sheets' : 'Đã cập nhật tạm')
+    } catch (error) {
+      setSyncState('error')
+      setSyncMessage(error instanceof Error ? error.message : 'Không cập nhật được task')
+    } finally {
+      setBusyTaskId('')
+    }
   }
 
   return (
@@ -198,7 +259,13 @@ function App() {
         }}
       />
       <div className="relative mx-auto grid min-h-screen max-w-[1480px] grid-cols-1 lg:grid-cols-[252px_1fr]">
-        <Sidebar activeView={activeView} setActiveView={setActiveView} source={source} />
+        <Sidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+          source={source}
+          syncMessage={syncMessage}
+          syncState={syncState}
+        />
 
         <section className="min-w-0 border-white/10 lg:border-l">
           <Topbar
@@ -212,7 +279,9 @@ function App() {
             {activeView === 'overview' && (
               <OverviewView
                 board={board}
+                busyTaskId={busyTaskId}
                 metrics={metrics}
+                onStatusChange={handleTaskStatusChange}
                 onQuickAdd={() => setIsQuickAddOpen(true)}
                 selectedTask={selectedTask}
                 setActiveView={setActiveView}
@@ -222,6 +291,8 @@ function App() {
             )}
             {activeView === 'tasks' && (
               <TasksView
+                busyTaskId={busyTaskId}
+                onStatusChange={handleTaskStatusChange}
                 onQuickAdd={() => setIsQuickAddOpen(true)}
                 selectedTask={selectedTask}
                 setSelectedTaskId={setSelectedTaskId}
@@ -239,7 +310,9 @@ function App() {
       </div>
 
       <QuickAddSheet
+        error={syncState === 'error' ? syncMessage : ''}
         isOpen={isQuickAddOpen}
+        isSaving={syncState === 'saving'}
         onClose={() => setIsQuickAddOpen(false)}
         onCreate={handleCreateTask}
       />
@@ -252,11 +325,22 @@ function Sidebar({
   activeView,
   setActiveView,
   source,
+  syncMessage,
+  syncState,
 }: {
   activeView: ViewId
   setActiveView: (view: ViewId) => void
   source: string
+  syncMessage: string
+  syncState: SyncState
 }) {
+  const syncDot = {
+    error: 'bg-rose-400',
+    loading: 'bg-sky-300',
+    ready: 'bg-emerald-400',
+    saving: 'bg-amber-300',
+  }[syncState]
+
   return (
     <aside className="hidden border-r border-white/10 bg-white/[0.045] px-3 py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl lg:block">
       <div className="flex items-center gap-3 px-2">
@@ -268,12 +352,6 @@ function Sidebar({
           <h1 className="text-sm font-semibold text-white">VTARCH OS</h1>
         </div>
       </div>
-
-      <button className="mt-5 flex min-h-10 w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.055] px-3 text-left text-sm text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <Search size={15} />
-        <span className="flex-1 truncate">Tìm kiếm...</span>
-        <span className="rounded border border-white/10 bg-black/20 px-1.5 text-[10px]">Ctrl K</span>
-      </button>
 
       <nav className="mt-5 space-y-1">
         {views.map(({ id, label, icon: Icon }) => (
@@ -298,10 +376,10 @@ function Sidebar({
           <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
             Sync
           </span>
-          <span className="size-2 rounded-full bg-emerald-400" />
+          <span className={`size-2 rounded-full ${syncDot}`} />
         </div>
         <p className="mt-3 text-sm text-zinc-300">{source}</p>
-        <p className="mt-1 text-xs leading-5 text-zinc-500">Đang đồng bộ</p>
+        <p className="mt-1 text-xs leading-5 text-zinc-500">{syncMessage}</p>
       </div>
 
     </aside>
@@ -360,7 +438,9 @@ function Topbar({
 
 function OverviewView({
   board,
+  busyTaskId,
   metrics,
+  onStatusChange,
   onQuickAdd,
   selectedTask,
   setActiveView,
@@ -368,7 +448,9 @@ function OverviewView({
   tasks,
 }: {
   board: ReadonlyArray<readonly [string, number, string]>
+  busyTaskId: string
   metrics: ReadonlyArray<readonly [string, string | number, string, LucideIcon]>
+  onStatusChange: (task: Task, status: Task['Status']) => void
   onQuickAdd: () => void
   selectedTask?: Task
   setActiveView: (view: ViewId) => void
@@ -402,7 +484,11 @@ function OverviewView({
           />
         </Panel>
 
-        <TaskDetail task={selectedTask} />
+        <TaskDetail
+          busyTaskId={busyTaskId}
+          onStatusChange={onStatusChange}
+          task={selectedTask}
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
@@ -486,14 +572,14 @@ function QuickActions({
       accent: 'from-sky-300/22 to-transparent text-sky-200',
       description: 'Ý tưởng',
       icon: NotebookText,
-      label: 'Lưu ghi chú',
+      label: 'Ghi chú',
       target: 'notes',
     },
     {
       accent: 'from-amber-300/22 to-transparent text-amber-200',
       description: 'Thu chi',
       icon: WalletCards,
-      label: 'Ghi tài chính',
+      label: 'Tài chính',
       target: 'finance',
     },
     {
@@ -609,11 +695,15 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
 }
 
 function TasksView({
+  busyTaskId,
+  onStatusChange,
   onQuickAdd,
   selectedTask,
   setSelectedTaskId,
   tasks,
 }: {
+  busyTaskId: string
+  onStatusChange: (task: Task, status: Task['Status']) => void
   onQuickAdd: () => void
   selectedTask?: Task
   setSelectedTaskId: (id: string) => void
@@ -624,7 +714,11 @@ function TasksView({
       <Panel title="Công việc" action="Thêm task" onAction={onQuickAdd}>
         <TaskList selectedId={selectedTask?.ID} setSelectedTaskId={setSelectedTaskId} tasks={tasks} />
       </Panel>
-      <TaskDetail task={selectedTask} />
+      <TaskDetail
+        busyTaskId={busyTaskId}
+        onStatusChange={onStatusChange}
+        task={selectedTask}
+      />
     </section>
   )
 }
@@ -684,7 +778,15 @@ function TaskList({
   )
 }
 
-function TaskDetail({ task }: { task?: Task }) {
+function TaskDetail({
+  busyTaskId,
+  onStatusChange,
+  task,
+}: {
+  busyTaskId: string
+  onStatusChange: (task: Task, status: Task['Status']) => void
+  task?: Task
+}) {
   if (!task) {
     return (
       <Panel title="Chi tiết">
@@ -699,9 +801,6 @@ function TaskDetail({ task }: { task?: Task }) {
         <div>
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-xl font-semibold leading-7 text-white">{task.Title}</h3>
-            <button className="rounded-md p-2 text-zinc-500 hover:bg-zinc-900 hover:text-white">
-              <MoreHorizontal size={18} />
-            </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <span className={`rounded px-2.5 py-1 text-xs ring-1 ${statusTone[task.Status]}`}>
@@ -736,12 +835,25 @@ function TaskDetail({ task }: { task?: Task }) {
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <button className="min-h-10 rounded-md bg-zinc-100 text-sm font-medium text-zinc-950">
-            Hoàn thành
-          </button>
-          <button className="min-h-10 rounded-md border border-zinc-800 text-sm text-zinc-300">
-            Sửa task
-          </button>
+          {(['Inbox', 'Doing', 'Waiting', 'Done'] as const).map((status) => {
+            const isActive = task.Status === status
+            const isBusy = busyTaskId === task.ID
+            return (
+              <button
+                className={`min-h-10 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isActive
+                    ? 'border-white bg-white text-zinc-950'
+                    : 'border-white/10 bg-white/[0.035] text-zinc-300 hover:border-white/20 hover:bg-white/[0.07]'
+                }`}
+                disabled={isBusy || isActive}
+                key={status}
+                onClick={() => onStatusChange(task, status)}
+                type="button"
+              >
+                {isBusy && !isActive ? 'Đang lưu...' : statusLabel[status]}
+              </button>
+            )
+          })}
         </div>
       </div>
     </Panel>
@@ -941,13 +1053,17 @@ function AutomationView({ source }: { source: string }) {
 }
 
 function QuickAddSheet({
+  error,
   isOpen,
+  isSaving,
   onClose,
   onCreate,
 }: {
+  error: string
   isOpen: boolean
+  isSaving: boolean
   onClose: () => void
-  onCreate: (draft: TaskDraft) => void
+  onCreate: (draft: TaskDraft) => Promise<boolean>
 }) {
   const [draft, setDraft] = useState<TaskDraft>({
     dueAt: '',
@@ -957,10 +1073,11 @@ function QuickAddSheet({
     title: '',
   })
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!draft.title.trim()) return
-    onCreate(draft)
+    if (!draft.title.trim() || isSaving) return
+    const saved = await onCreate(draft)
+    if (!saved) return
     setDraft({
       dueAt: '',
       note: '',
@@ -1062,12 +1179,17 @@ function QuickAddSheet({
           </button>
           <button
             className="min-h-11 rounded-md bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!draft.title.trim()}
+            disabled={!draft.title.trim() || isSaving}
             type="submit"
           >
-            Tạo việc
+            {isSaving ? 'Đang lưu...' : 'Tạo việc'}
           </button>
         </div>
+        {error ? (
+          <p className="mt-3 rounded-md border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
+            {error}
+          </p>
+        ) : null}
       </form>
     </div>
   )
