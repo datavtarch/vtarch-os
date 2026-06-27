@@ -189,20 +189,20 @@ function App() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#08090c] pb-20 text-zinc-100 lg:pb-0">
+    <main className="relative min-h-screen overflow-hidden bg-[#050609] pb-20 text-zinc-100 lg:pb-0">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 opacity-[0.42]"
+        className="pointer-events-none fixed inset-0 opacity-80"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(135deg, rgba(16,185,129,0.13), transparent 36%, rgba(14,165,233,0.08) 72%, transparent)',
-          backgroundSize: '44px 44px, 44px 44px, 100% 100%',
+            'linear-gradient(120deg, rgba(255,255,255,0.12), transparent 18%, rgba(125,211,252,0.08) 42%, transparent 64%), linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)',
+          backgroundSize: '100% 100%, 48px 48px, 48px 48px',
         }}
       />
       <div className="relative mx-auto grid min-h-screen max-w-[1480px] grid-cols-1 lg:grid-cols-[252px_1fr]">
         <Sidebar activeView={activeView} setActiveView={setActiveView} source={source} />
 
-        <section className="min-w-0 border-zinc-800/80 lg:border-l">
+        <section className="min-w-0 border-white/10 lg:border-l">
           <Topbar
             activeLabel={activeLabel}
             activeView={activeView}
@@ -260,7 +260,7 @@ function Sidebar({
   source: string
 }) {
   return (
-    <aside className="hidden bg-[#0c0d11] px-3 py-4 lg:block">
+    <aside className="hidden border-r border-white/10 bg-white/[0.045] px-3 py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl lg:block">
       <div className="flex items-center gap-3 px-2">
         <div className="grid size-9 place-items-center rounded-md bg-zinc-100 text-zinc-950">
           <Send size={17} />
@@ -271,10 +271,10 @@ function Sidebar({
         </div>
       </div>
 
-      <button className="mt-5 flex min-h-10 w-full items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 text-left text-sm text-zinc-400">
+      <button className="mt-5 flex min-h-10 w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.055] px-3 text-left text-sm text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <Search size={15} />
         <span className="flex-1 truncate">Tìm kiếm...</span>
-        <span className="rounded border border-zinc-800 px-1.5 text-[10px]">Ctrl K</span>
+        <span className="rounded border border-white/10 bg-black/20 px-1.5 text-[10px]">Ctrl K</span>
       </button>
 
       <nav className="mt-5 space-y-1">
@@ -282,8 +282,8 @@ function Sidebar({
           <button
             className={`flex min-h-9 w-full items-center gap-3 rounded-md px-2.5 text-left text-sm transition ${
               activeView === id
-                ? 'bg-zinc-100 text-zinc-950'
-                : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100'
+                ? 'bg-white text-zinc-950 shadow-[0_12px_30px_rgba(255,255,255,0.10)]'
+                : 'text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'
             }`}
             key={id}
             onClick={() => setActiveView(id)}
@@ -295,7 +295,7 @@ function Sidebar({
         ))}
       </nav>
 
-      <div className="mt-6 rounded-md border border-zinc-800 bg-zinc-950 p-3">
+      <div className="mt-6 rounded-md border border-white/10 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
             Sync
@@ -308,7 +308,7 @@ function Sidebar({
         </p>
       </div>
 
-      <button className="mt-3 flex min-h-9 w-full items-center justify-center gap-2 rounded-md border border-zinc-800 text-sm text-zinc-400">
+      <button className="mt-3 flex min-h-9 w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.035] text-sm text-zinc-400">
         <Settings size={15} />
         Cài đặt
       </button>
@@ -328,19 +328,19 @@ function Topbar({
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-[#08090c]/88 px-3 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.24)] backdrop-blur-xl md:px-5">
+    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050609]/72 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl md:px-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">VTARCH OS</p>
           <h2 className="truncate text-lg font-semibold text-white">{activeLabel}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button className="hidden min-h-9 items-center gap-2 rounded-md border border-zinc-800 px-3 text-sm text-zinc-300 md:inline-flex">
+          <button className="hidden min-h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 text-sm text-zinc-300 md:inline-flex">
             <ListFilter size={15} />
             Lọc
           </button>
           <button
-            className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-emerald-100"
+            className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6]"
             onClick={onQuickAdd}
             type="button"
           >
@@ -355,8 +355,8 @@ function Topbar({
           <button
             className={`rounded-md px-3 py-1.5 text-sm transition ${
               activeView === id
-                ? 'bg-zinc-100 text-zinc-950'
-                : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
+                ? 'bg-white text-zinc-950 shadow-[0_10px_26px_rgba(255,255,255,0.10)]'
+                : 'text-zinc-400 hover:bg-white/[0.07] hover:text-white'
             }`}
             key={id}
             onClick={() => setActiveView(id)}
@@ -392,9 +392,9 @@ function OverviewView({
       <FocusHero selectedTask={selectedTask} tasks={tasks} />
       <QuickActions onQuickAdd={onQuickAdd} setActiveView={setActiveView} />
 
-      <section className="grid grid-cols-4 gap-2 rounded-md border border-zinc-800 bg-[#0f1117]/80 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.14)] md:gap-3 md:p-3">
+      <section className="grid grid-cols-4 gap-2 rounded-md border border-white/10 bg-white/[0.055] p-2 shadow-[0_24px_80px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl md:gap-3 md:p-3">
         {metrics.map(([title, value, meta, Icon]) => (
-          <div className="min-w-0 rounded border border-zinc-800/80 bg-zinc-950/70 p-2 md:p-3" key={title}>
+          <div className="min-w-0 rounded border border-white/10 bg-black/20 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:p-3" key={title}>
             <div className="flex items-center gap-1.5 md:justify-between">
               <Icon className="shrink-0 text-zinc-500" size={14} />
               <p className="min-w-0 truncate text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-500 md:text-xs">{title}</p>
@@ -458,7 +458,7 @@ function OverviewView({
         <Panel title="Trạng thái">
           <div className="grid grid-cols-2 gap-2">
             {board.map(([label, count, dot]) => (
-              <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3" key={label}>
+              <div className="rounded-md border border-white/10 bg-black/20 p-3" key={label}>
                 <div className="flex items-center gap-2">
                   <span className={`size-2 rounded-full ${dot}`} />
                   <span className="text-sm text-zinc-400">{label}</span>
@@ -523,15 +523,15 @@ function QuickActions({
   return (
     <section className="grid gap-3 md:grid-cols-[1.35fr_2fr]">
       <button
-        className="group relative overflow-hidden rounded-md border border-emerald-300/30 bg-emerald-300 px-4 py-4 text-left text-zinc-950 shadow-[0_24px_70px_rgba(16,185,129,0.22)] transition hover:-translate-y-0.5"
+        className="group relative overflow-hidden rounded-md border border-white/20 bg-white/[0.78] px-4 py-4 text-left text-zinc-950 shadow-[0_28px_90px_rgba(255,255,255,0.14),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:bg-white"
         onClick={onQuickAdd}
         type="button"
       >
         <span
           aria-hidden="true"
-          className="absolute -right-10 -top-10 size-28 rounded-full bg-white/25 blur-2xl"
+          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"
         />
-        <span className="relative inline-flex size-10 items-center justify-center rounded-md bg-zinc-950 text-emerald-200">
+        <span className="relative inline-flex size-10 items-center justify-center rounded-md bg-black/80 text-[#d6fff0] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
           <PrimaryIcon size={18} />
         </span>
         <span className="relative mt-4 block text-lg font-bold">{primaryAction.label}</span>
@@ -541,7 +541,7 @@ function QuickActions({
       <div className="grid grid-cols-3 gap-2">
         {secondaryActions.map(({ accent, description, icon: Icon, label, target }) => (
         <button
-          className="group overflow-hidden rounded-md border border-zinc-800 bg-[#0f1117] p-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.14)] transition hover:-translate-y-0.5 hover:border-zinc-600"
+          className="group overflow-hidden rounded-md border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_18px_55px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]"
           key={label}
           onClick={() => setActiveView(target)}
           type="button"
@@ -563,19 +563,20 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
   const doneCount = tasks.filter((task) => task.Status === 'Done').length
   const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0
   return (
-    <section className="relative overflow-hidden rounded-md border border-zinc-800 bg-[#101218] shadow-[0_24px_80px_rgba(0,0,0,0.26)]">
+    <section className="relative overflow-hidden rounded-md border border-white/[0.12] bg-white/[0.065] shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
       <div
         aria-hidden="true"
-        className="absolute inset-0 opacity-70"
+        className="absolute inset-0 opacity-90"
         style={{
           background:
-            'linear-gradient(115deg, rgba(16,185,129,0.18), transparent 34%), linear-gradient(245deg, rgba(14,165,233,0.14), transparent 30%)',
+            'linear-gradient(115deg, rgba(255,255,255,0.12), transparent 28%), linear-gradient(245deg, rgba(125,211,252,0.12), transparent 34%)',
         }}
       />
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
       <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="relative border-b border-zinc-800 p-4 md:p-5 lg:border-b-0 lg:border-r">
+        <div className="relative border-b border-white/10 p-4 md:p-5 lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3">
-            <span className="rounded border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-200">
+            <span className="rounded border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-medium text-[#dffcf2] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
               Không gian làm việc
             </span>
             <span className="text-xs text-zinc-500">{todayCount} lịch hôm nay</span>
@@ -587,19 +588,19 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
             VTARCH OS gom task, lịch, ghi chú, tài chính và automation vào một màn hình làm việc gọn.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <span className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300">
+            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               {selectedTask?.Project || 'Personal OS'}
             </span>
-            <span className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300">
+            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               Hạn: {formatDate(selectedTask?.DueAt)}
             </span>
-            <span className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300">
+            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               {selectedTask?.Priority || 'P2'}
             </span>
           </div>
-          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-zinc-950 ring-1 ring-zinc-800">
+          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-black/30 ring-1 ring-white/10">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-sky-300 to-zinc-100"
+              className="h-full rounded-full bg-gradient-to-r from-[#dffcf2] via-sky-200 to-white shadow-[0_0_24px_rgba(186,230,253,0.28)]"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -607,7 +608,7 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
             {progress}% công việc đã hoàn thành trong dữ liệu hiện tại
           </p>
         </div>
-        <div className="relative grid grid-cols-3 divide-x divide-zinc-800 lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
+        <div className="relative grid grid-cols-3 divide-x divide-white/10 lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
           {[
             ['Tập trung', selectedTask?.Status ? statusLabel[selectedTask.Status] : 'Sẵn sàng'],
             ['Bot', 'Telegram'],
@@ -669,8 +670,8 @@ function TaskList({
         <button
           className={`flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left transition ${
             selectedId === task.ID
-              ? 'border-zinc-600 bg-zinc-900/90'
-              : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900/55'
+              ? 'border-white/25 bg-white/[0.08]'
+              : 'border-white/10 bg-black/[0.18] hover:border-white/20 hover:bg-white/[0.06]'
           }`}
           key={task.ID}
           onClick={() => setSelectedTaskId(task.ID)}
@@ -744,7 +745,7 @@ function TaskDetail({ task }: { task?: Task }) {
           ))}
         </dl>
 
-        <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3">
+        <div className="rounded-md border border-white/10 bg-black/20 p-3">
           <p className="text-xs uppercase tracking-[0.14em] text-zinc-600">Ghi chú</p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             {task.Note || 'Chưa có ghi chú cho công việc này.'}
@@ -776,7 +777,7 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
       <Panel title="Lịch tuần">
         <div className="space-y-2 md:hidden">
           {weekItems.map(({ day, task }, index) => (
-            <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3" key={day}>
+            <div className="rounded-md border border-white/10 bg-black/20 p-3" key={day}>
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{day}</p>
@@ -798,14 +799,14 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
 
         <div className="hidden grid-cols-7 gap-2 text-center text-xs text-zinc-500 md:grid">
           {weekDays.map((day) => (
-            <div className="rounded-md border border-zinc-800 bg-zinc-950 py-2" key={day}>
+            <div className="rounded-md border border-white/10 bg-black/20 py-2" key={day}>
               {day}
             </div>
           ))}
         </div>
         <div className="mt-2 hidden grid-cols-7 gap-2 md:grid">
           {weekItems.map(({ day, task }, index) => (
-            <div className="min-h-32 rounded-md border border-zinc-800 bg-zinc-950 p-2 text-xs text-zinc-600" key={day}>
+            <div className="min-h-32 rounded-md border border-white/10 bg-black/20 p-2 text-xs text-zinc-600" key={day}>
               {index + 1}
               {task ? (
                 <div className="mt-3 rounded border border-emerald-400/20 bg-emerald-400/10 p-2 text-left text-emerald-100">
@@ -825,7 +826,7 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
         <div className="space-y-2">
           {tasks.length ? (
             tasks.slice(0, 5).map((task) => (
-              <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3" key={task.ID}>
+              <div className="rounded-md border border-white/10 bg-black/20 p-3" key={task.ID}>
                 <p className="text-sm font-medium text-white">{task.Title}</p>
                 <p className="mt-1 text-xs text-zinc-500">{formatDate(task.DueAt)}</p>
               </div>
@@ -842,7 +843,7 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
 function NotesView({ notes }: { notes: DashboardData['notes'] }) {
   return (
     <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      <article className="rounded-md border border-zinc-800 bg-[#0f1117] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+      <article className="rounded-md border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
         <span className="rounded border border-sky-400/20 bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-200">
           Capture
         </span>
@@ -853,7 +854,7 @@ function NotesView({ notes }: { notes: DashboardData['notes'] }) {
       </article>
       {notes.length ? (
         notes.map((note) => (
-          <article className="rounded-md border border-zinc-800 bg-[#0f1117] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={note.ID}>
+          <article className="rounded-md border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={note.ID}>
             <p className="text-sm leading-6 text-zinc-300">{note.Content}</p>
             <div className="mt-4 flex items-center justify-between text-xs text-zinc-500">
               <span>{note.Project || 'Quick capture'}</span>
@@ -894,7 +895,7 @@ function FinanceView({
             ['Chi', formatMoney(expense), 'text-rose-300'],
             ['Còn lại', formatMoney(balance), balance >= 0 ? 'text-sky-300' : 'text-amber-300'],
           ].map(([label, value, tone]) => (
-            <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2" key={label}>
+            <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-3 py-2" key={label}>
               <span className="text-sm text-zinc-500">{label}</span>
               <span className={`text-sm font-semibold ${tone}`}>{value} VND</span>
             </div>
@@ -909,7 +910,7 @@ function FinanceView({
         <div className="space-y-2">
           {finance.length ? (
             finance.map((item) => (
-              <div className="flex items-center justify-between rounded-md border border-zinc-800 bg-zinc-950 p-3" key={item.ID}>
+              <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 p-3" key={item.ID}>
                 <div>
                   <p className="text-sm font-medium text-white">{item.Description || item.Category}</p>
                   <p className="mt-1 text-xs text-zinc-500">{item.Date} · {item.Type}</p>
@@ -936,12 +937,12 @@ function AutomationView({ source }: { source: string }) {
         ['Morning report', 'Báo cáo công việc lúc 08:00 mỗi ngày', 'Ready'],
         ['Reminder scan', 'Quét nhắc việc và gửi thông báo Telegram', 'Ready'],
       ].map(([title, description, status]) => (
-        <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={title}>
+        <div className="rounded-md border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={title}>
           <div className="flex items-center justify-between">
             <span className="grid size-10 place-items-center rounded-md border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
               <Bot size={18} />
             </span>
-            <span className="rounded bg-zinc-950 px-2 py-1 text-xs text-zinc-300">
+            <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-xs text-zinc-300">
               {status}
             </span>
           </div>
@@ -949,7 +950,7 @@ function AutomationView({ source }: { source: string }) {
           <p className="mt-2 text-sm leading-6 text-zinc-500">{description}</p>
         </div>
       ))}
-      <div className="rounded-md border border-zinc-800 bg-[#0f1117] p-4 md:col-span-3">
+      <div className="rounded-md border border-white/10 bg-white/[0.055] p-4 md:col-span-3">
         <p className="text-sm text-zinc-400">Nguồn hiện tại: {source}</p>
       </div>
     </section>
@@ -989,9 +990,9 @@ function QuickAddSheet({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end bg-black/60 p-2 backdrop-blur-sm md:items-center md:justify-center">
+    <div className="fixed inset-0 z-40 flex items-end bg-black/60 p-2 backdrop-blur-md md:items-center md:justify-center">
       <form
-        className="w-full rounded-xl border border-zinc-800 bg-[#101218] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42)] md:max-w-lg"
+        className="w-full rounded-xl border border-white/10 bg-white/[0.075] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:max-w-lg"
         onSubmit={handleSubmit}
       >
         <div className="flex items-start justify-between gap-3">
@@ -1000,7 +1001,7 @@ function QuickAddSheet({
             <h3 className="mt-1 text-xl font-semibold text-white">Thêm việc mới</h3>
           </div>
           <button
-            className="grid size-9 place-items-center rounded-md border border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white"
+            className="grid size-9 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
             onClick={onClose}
             type="button"
           >
@@ -1012,7 +1013,7 @@ function QuickAddSheet({
           <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Việc cần làm</span>
           <input
             autoFocus
-            className="mt-2 min-h-12 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-base text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
+            className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-black/20 px-3 text-base text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
             onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
             placeholder="Ví dụ: Gọi khách xác nhận bản vẽ"
             value={draft.title}
@@ -1023,7 +1024,7 @@ function QuickAddSheet({
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Dự án</span>
             <input
-              className="mt-2 min-h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
+              className="mt-2 min-h-11 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
               onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
               placeholder="Personal OS"
               value={draft.project}
@@ -1032,7 +1033,7 @@ function QuickAddSheet({
           <label className="block">
             <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Ưu tiên</span>
             <select
-              className="mt-2 min-h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
+              className="mt-2 min-h-11 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
               onChange={(event) =>
                 setDraft((current) => ({
                   ...current,
@@ -1051,7 +1052,7 @@ function QuickAddSheet({
         <label className="mt-3 block">
           <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Hạn xử lý</span>
           <input
-            className="mt-2 min-h-11 w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
+            className="mt-2 min-h-11 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
             onChange={(event) => setDraft((current) => ({ ...current, dueAt: event.target.value }))}
             type="datetime-local"
             value={draft.dueAt}
@@ -1061,7 +1062,7 @@ function QuickAddSheet({
         <label className="mt-3 block">
           <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Ghi chú</span>
           <textarea
-            className="mt-2 min-h-20 w-full resize-none rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
+            className="mt-2 min-h-20 w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
             onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
             placeholder="Thông tin thêm nếu cần"
             value={draft.note}
@@ -1070,14 +1071,14 @@ function QuickAddSheet({
 
         <div className="mt-4 grid grid-cols-[1fr_1.4fr] gap-2">
           <button
-            className="min-h-11 rounded-md border border-zinc-800 text-sm font-medium text-zinc-300"
+            className="min-h-11 rounded-md border border-white/10 bg-white/[0.035] text-sm font-medium text-zinc-300"
             onClick={onClose}
             type="button"
           >
             Đóng
           </button>
           <button
-            className="min-h-11 rounded-md bg-emerald-300 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-11 rounded-md bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
             disabled={!draft.title.trim()}
             type="submit"
           >
@@ -1104,8 +1105,8 @@ function Panel({
   title: string
 }) {
   return (
-    <section className="overflow-hidden rounded-md border border-zinc-800 bg-[#0f1117] shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
-      <div className="flex min-h-12 items-center justify-between border-b border-zinc-800 px-4">
+    <section className="overflow-hidden rounded-md border border-white/10 bg-white/[0.055] shadow-[0_24px_80px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+      <div className="flex min-h-12 items-center justify-between border-b border-white/10 px-4">
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         {action ? (
           <button
@@ -1125,7 +1126,7 @@ function Panel({
 
 function EmptyState({ body, title }: { body: string; title: string }) {
   return (
-    <div className="rounded-md border border-dashed border-zinc-700 bg-zinc-950 p-5">
+    <div className="rounded-md border border-dashed border-white/15 bg-white/[0.04] p-5 backdrop-blur">
       <p className="font-medium text-white">{title}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-500">{body}</p>
     </div>
@@ -1140,12 +1141,12 @@ function MobileNav({
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-6 rounded-xl border border-zinc-800 bg-[#0f1117]/96 p-1 shadow-2xl shadow-black/60 backdrop-blur lg:hidden">
+    <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-6 rounded-xl border border-white/10 bg-white/[0.075] p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl lg:hidden">
       {views.map(({ id, label, icon: Icon }) => (
         <button
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] transition ${
             activeView === id
-              ? 'bg-zinc-100 text-zinc-950'
+              ? 'bg-white text-zinc-950 shadow-[0_10px_24px_rgba(255,255,255,0.12)]'
               : 'text-zinc-500 hover:text-zinc-100'
           }`}
           key={id}
