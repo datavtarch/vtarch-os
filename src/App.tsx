@@ -509,9 +509,9 @@ function QuickActions({
   const PrimaryIcon = primaryAction.icon
 
   return (
-    <section className="grid gap-3 md:grid-cols-[1.35fr_2fr]">
+    <section className="grid gap-3 md:grid-cols-[1.2fr_2fr]">
       <button
-        className="group relative overflow-hidden rounded-md border border-white/20 bg-white/[0.78] px-4 py-4 text-left text-zinc-950 shadow-[0_28px_90px_rgba(255,255,255,0.14),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:bg-white"
+        className="group relative min-h-[116px] overflow-hidden rounded-md border border-white/25 bg-white/[0.72] px-4 py-4 text-left text-zinc-950 shadow-[0_30px_90px_rgba(210,255,241,0.13),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:bg-white"
         onClick={onQuickAdd}
         type="button"
       >
@@ -523,13 +523,13 @@ function QuickActions({
           <PrimaryIcon size={18} />
         </span>
         <span className="relative mt-4 block text-lg font-bold">{primaryAction.label}</span>
-        <span className="relative mt-1 block text-sm text-zinc-800">{primaryAction.description}</span>
+        <span className="relative mt-1 block text-sm text-zinc-700">{primaryAction.description}</span>
       </button>
 
       <div className="grid grid-cols-3 gap-2">
         {secondaryActions.map(({ accent, description, icon: Icon, label, target }) => (
         <button
-          className="group overflow-hidden rounded-md border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_18px_55px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]"
+          className="group min-h-[116px] overflow-hidden rounded-md border border-white/10 bg-white/[0.05] p-3 text-left shadow-[0_18px_55px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]"
           key={label}
           onClick={() => setActiveView(target)}
           type="button"
@@ -538,7 +538,7 @@ function QuickActions({
             <Icon size={16} />
           </span>
           <span className="mt-3 block truncate text-sm font-semibold text-white">{label}</span>
-          <span className="mt-1 hidden text-xs text-zinc-500 sm:block">{description}</span>
+          <span className="mt-1 block text-xs text-zinc-500">{description}</span>
         </button>
         ))}
       </div>
@@ -565,16 +565,13 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
         <div className="relative border-b border-white/10 p-4 md:p-5 lg:border-b-0 lg:border-r">
           <div className="flex items-center justify-between gap-3">
             <span className="rounded border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-medium text-[#dffcf2] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-              Không gian làm việc
+              Hôm nay
             </span>
             <span className="text-xs text-zinc-500">{todayCount} lịch hôm nay</span>
           </div>
-          <h3 className="mt-5 max-w-2xl text-2xl font-semibold tracking-[-0.01em] text-white md:text-3xl">
+          <h3 className="mt-4 max-w-2xl text-2xl font-semibold text-white md:text-3xl">
             {selectedTask?.Title || 'Chọn việc quan trọng nhất để bắt đầu ngay.'}
           </h3>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">
-            Một nơi để giữ nhịp công việc cá nhân.
-          </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               {selectedTask?.Project || 'Personal OS'}
