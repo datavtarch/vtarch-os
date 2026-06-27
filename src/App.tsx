@@ -9,13 +9,11 @@ import {
   Circle,
   CreditCard,
   LayoutDashboard,
-  ListFilter,
   MoreHorizontal,
   NotebookText,
   Plus,
   Search,
   Send,
-  Settings,
   TrendingUp,
   WalletCards,
   X,
@@ -303,15 +301,9 @@ function Sidebar({
           <span className="size-2 rounded-full bg-emerald-400" />
         </div>
         <p className="mt-3 text-sm text-zinc-300">{source}</p>
-        <p className="mt-1 text-xs leading-5 text-zinc-500">
-          Telegram bot và Google Sheets đang được dùng làm backend miễn phí.
-        </p>
+        <p className="mt-1 text-xs leading-5 text-zinc-500">Đang đồng bộ</p>
       </div>
 
-      <button className="mt-3 flex min-h-9 w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.035] text-sm text-zinc-400">
-        <Settings size={15} />
-        Cài đặt
-      </button>
     </aside>
   )
 }
@@ -335,10 +327,6 @@ function Topbar({
           <h2 className="truncate text-lg font-semibold text-white">{activeLabel}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button className="hidden min-h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 text-sm text-zinc-300 md:inline-flex">
-            <ListFilter size={15} />
-            Lọc
-          </button>
           <button
             className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6]"
             onClick={onQuickAdd}
@@ -489,28 +477,28 @@ function QuickActions({
   }> = [
     {
       accent: 'from-emerald-300/22 to-transparent text-emerald-200',
-      description: 'Task, deadline, nhắc việc',
+      description: 'Task mới',
       icon: CheckCircle2,
       label: 'Ghi việc mới',
       target: 'tasks',
     },
     {
       accent: 'from-sky-300/22 to-transparent text-sky-200',
-      description: 'Ý tưởng, link, tài liệu',
+      description: 'Ý tưởng',
       icon: NotebookText,
       label: 'Lưu ghi chú',
       target: 'notes',
     },
     {
       accent: 'from-amber-300/22 to-transparent text-amber-200',
-      description: 'Thu, chi, công nợ',
+      description: 'Thu chi',
       icon: WalletCards,
       label: 'Ghi tài chính',
       target: 'finance',
     },
     {
       accent: 'from-violet-300/22 to-transparent text-violet-200',
-      description: 'Bot và báo cáo tự động',
+      description: 'Bot',
       icon: Bot,
       label: 'Tự động hóa',
       target: 'automation',
@@ -585,7 +573,7 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
             {selectedTask?.Title || 'Chọn việc quan trọng nhất để bắt đầu ngay.'}
           </h3>
           <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">
-            VTARCH OS gom task, lịch, ghi chú, tài chính và automation vào một màn hình làm việc gọn.
+            Một nơi để giữ nhịp công việc cá nhân.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
             <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
@@ -604,9 +592,7 @@ function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[]
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-zinc-500">
-            {progress}% công việc đã hoàn thành trong dữ liệu hiện tại
-          </p>
+          <p className="mt-2 text-xs text-zinc-500">{progress}% hoàn thành</p>
         </div>
         <div className="relative grid grid-cols-3 divide-x divide-white/10 lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
           {[
@@ -658,7 +644,7 @@ function TaskList({
   if (!tasks.length) {
     return (
       <EmptyState
-        body="Gửi task qua Telegram hoặc thêm dòng vào Google Sheets để bắt đầu."
+        body="Chưa có dữ liệu."
         title="Chưa có công việc"
       />
     )
@@ -832,7 +818,7 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
               </div>
             ))
           ) : (
-            <EmptyState body="Không có task cần nhắc trong dữ liệu hiện tại." title="Lịch trống" />
+            <EmptyState body="Không có lịch sắp tới." title="Lịch trống" />
           )}
         </div>
       </Panel>
@@ -849,7 +835,7 @@ function NotesView({ notes }: { notes: DashboardData['notes'] }) {
         </span>
         <h3 className="mt-4 text-lg font-semibold text-white">Kho ý tưởng nhanh</h3>
         <p className="mt-2 text-sm leading-6 text-zinc-500">
-          Gom ghi chú, link, tài liệu và ý tưởng rời rạc vào một nơi trước khi biến thành task.
+          Ghi lại ý tưởng trước khi biến thành việc.
         </p>
       </article>
       {notes.length ? (
@@ -863,7 +849,7 @@ function NotesView({ notes }: { notes: DashboardData['notes'] }) {
           </article>
         ))
       ) : (
-        <EmptyState body="Gửi /note qua Telegram để lưu nhanh ý tưởng." title="Chưa có ghi chú" />
+        <EmptyState body="Chưa có dữ liệu." title="Chưa có ghi chú" />
       )}
     </section>
   )
@@ -921,7 +907,7 @@ function FinanceView({
               </div>
             ))
           ) : (
-            <EmptyState body="Gửi /chi hoặc /thu qua Telegram để ghi nhanh giao dịch." title="Chưa có giao dịch" />
+            <EmptyState body="Chưa có dữ liệu." title="Chưa có giao dịch" />
           )}
         </div>
       </Panel>
@@ -933,9 +919,9 @@ function AutomationView({ source }: { source: string }) {
   return (
     <section className="grid gap-3 md:grid-cols-3">
       {[
-        ['Telegram Webhook', 'Nhận tin nhắn và tạo task/note/tài chính tự động', 'Online'],
-        ['Morning report', 'Báo cáo công việc lúc 08:00 mỗi ngày', 'Ready'],
-        ['Reminder scan', 'Quét nhắc việc và gửi thông báo Telegram', 'Ready'],
+        ['Telegram Webhook', 'Tạo task, note, tài chính', 'Online'],
+        ['Morning report', 'Tóm tắt 08:00', 'Ready'],
+        ['Reminder scan', 'Quét nhắc việc', 'Ready'],
       ].map(([title, description, status]) => (
         <div className="rounded-md border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={title}>
           <div className="flex items-center justify-between">
@@ -951,7 +937,7 @@ function AutomationView({ source }: { source: string }) {
         </div>
       ))}
       <div className="rounded-md border border-white/10 bg-white/[0.055] p-4 md:col-span-3">
-        <p className="text-sm text-zinc-400">Nguồn hiện tại: {source}</p>
+        <p className="text-sm text-zinc-400">Nguồn: {source}</p>
       </div>
     </section>
   )
@@ -1085,9 +1071,6 @@ function QuickAddSheet({
             Tạo việc
           </button>
         </div>
-        <p className="mt-3 text-xs leading-5 text-zinc-500">
-          Việc mới hiển thị ngay trong phiên app. Lưu lâu dài sẽ đi qua Google Sheets/Telegram backend.
-        </p>
       </form>
     </div>
   )
