@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
-  ArrowUpRight,
   Bell,
-  Bot,
-  CalendarDays,
   Check,
   CheckCircle2,
   Circle,
@@ -12,28 +9,33 @@ import {
   NotebookText,
   Plus,
   Send,
-  TrendingUp,
   WalletCards,
   X,
   type LucideIcon,
 } from 'lucide-react'
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-} from 'recharts'
-import { createTask, getDashboardData, updateTaskStatus } from '@/lib/api'
+  createFinance,
+  createNote,
+  createTask,
+  getDashboardData,
+  updateTaskStatus,
+} from '@/lib/api'
 import { mockDashboardData } from '@/lib/mock-data'
 import type { DashboardData, Task } from '@/types'
 
-type ViewId = 'overview' | 'tasks' | 'calendar' | 'notes' | 'finance' | 'automation'
+type ViewId = 'today' | 'tasks' | 'capture' | 'finance'
 type SyncState = 'loading' | 'ready' | 'saving' | 'error'
+type CaptureKind = 'task' | 'note' | 'finance'
+type TaskStatusFilter = 'Open' | 'All' | Task['Status']
 
-type TaskDraft = {
+type CaptureDraft = {
+  amount: string
+  category: string
+  content: string
+  date: string
   dueAt: string
+  financeType: 'expense' | 'income'
+  kind: CaptureKind
   note: string
   priority: Task['Priority']
   project: string
@@ -41,22 +43,10 @@ type TaskDraft = {
 }
 
 const views: Array<{ id: ViewId; label: string; icon: LucideIcon }> = [
-  { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard },
+  { id: 'today', label: 'Hôm nay', icon: LayoutDashboard },
   { id: 'tasks', label: 'Công việc', icon: CheckCircle2 },
-  { id: 'calendar', label: 'Lịch', icon: CalendarDays },
-  { id: 'notes', label: 'Ghi chú', icon: NotebookText },
+  { id: 'capture', label: 'Ghi nhanh', icon: NotebookText },
   { id: 'finance', label: 'Tài chính', icon: CreditCard },
-  { id: 'automation', label: 'Tự động', icon: Bot },
-]
-
-const chartData = [
-  { day: 'T2', done: 2 },
-  { day: 'T3', done: 4 },
-  { day: 'T4', done: 3 },
-  { day: 'T5', done: 6 },
-  { day: 'T6', done: 5 },
-  { day: 'T7', done: 3 },
-  { day: 'CN', done: 4 },
 ]
 
 const statusLabel: Record<Task['Status'], string> = {
@@ -81,6 +71,20 @@ const priorityTone: Record<Task['Priority'], string> = {
   P3: 'text-zinc-300 bg-zinc-500/10 ring-zinc-500/20',
 }
 
+const emptyDraft: CaptureDraft = {
+  amount: '',
+  category: '',
+  content: '',
+  date: new Date().toISOString().slice(0, 10),
+  dueAt: '',
+  financeType: 'expense',
+  kind: 'task',
+  note: '',
+  priority: 'P2',
+  project: '',
+  title: '',
+}
+
 function formatDate(value?: string) {
   if (!value) return 'Chưa đặt'
   const date = new Date(value)
@@ -97,10 +101,26 @@ function formatMoney(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value)
 }
 
+function isOpenTask(task: Task) {
+  return !['Done', 'Cancelled'].includes(task.Status)
+}
+
+function isOverdue(task: Task) {
+  return isOpenTask(task) && Boolean(task.DueAt) && new Date(task.DueAt) < new Date()
+}
+
+function sortByDueDate(tasks: Task[]) {
+  return [...tasks].sort((first, second) => {
+    const firstTime = first.DueAt ? new Date(first.DueAt).getTime() : Number.MAX_SAFE_INTEGER
+    const secondTime = second.DueAt ? new Date(second.DueAt).getTime() : Number.MAX_SAFE_INTEGER
+    return firstTime - secondTime
+  })
+}
+
 function withFreshMetrics(data: DashboardData): DashboardData {
-  const openTasks = data.tasks.filter((task) => !['Done', 'Cancelled'].includes(task.Status))
-  const overdueTasks = openTasks.filter((task) => task.DueAt && new Date(task.DueAt) < new Date())
-  const weeklyExpense = data.finance
+  const openTasks = data.tasks.filter(isOpenTask)
+  const overdueTasks = openTasks.filter(isOverdue)
+  const expense = data.finance
     .filter((item) => item.Type === 'expense')
     .reduce((sum, item) => sum + Number(item.Amount || 0), 0)
 
@@ -109,21 +129,24 @@ function withFreshMetrics(data: DashboardData): DashboardData {
     metrics: {
       todayTasks: openTasks.length,
       overdueTasks: overdueTasks.length,
-      weeklyExpense,
+      weeklyExpense: expense,
       notes: data.notes.length,
     },
   }
 }
 
 function App() {
-  const [dashboard, setDashboard] = useState<DashboardData>(mockDashboardData)
+  const [dashboard, setDashboard] = useState<DashboardData>(withFreshMetrics(mockDashboardData))
   const [source, setSource] = useState('dữ liệu mẫu')
   const [syncState, setSyncState] = useState<SyncState>('loading')
   const [syncMessage, setSyncMessage] = useState('Đang tải dữ liệu')
-  const [activeView, setActiveView] = useState<ViewId>('overview')
+  const [activeView, setActiveView] = useState<ViewId>('today')
   const [selectedTaskId, setSelectedTaskId] = useState<string>(mockDashboardData.tasks[0]?.ID || '')
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false)
   const [busyTaskId, setBusyTaskId] = useState('')
+  const [isUsingMock, setIsUsingMock] = useState(true)
+
+  const hasRemote = Boolean(import.meta.env.VITE_APPS_SCRIPT_URL)
 
   useEffect(() => {
     setSyncState('loading')
@@ -134,89 +157,128 @@ function App() {
         const nextDashboard = withFreshMetrics(hasRows ? data : mockDashboardData)
         setDashboard(nextDashboard)
         setSelectedTaskId(nextDashboard.tasks[0]?.ID || '')
-        setSource(
-          import.meta.env.VITE_APPS_SCRIPT_URL
-            ? hasRows
-              ? 'Google Sheets'
-              : 'Google Sheets · dữ liệu mẫu'
-            : 'dữ liệu mẫu',
-        )
+        setIsUsingMock(!hasRows)
+        setSource(hasRemote ? (hasRows ? 'Google Sheets' : 'Google Sheets · dữ liệu mẫu') : 'dữ liệu mẫu')
         setSyncState('ready')
         setSyncMessage(hasRows ? 'Đã đồng bộ' : 'Đang dùng dữ liệu mẫu')
       })
       .catch((error) => {
         setDashboard(withFreshMetrics(mockDashboardData))
         setSelectedTaskId(mockDashboardData.tasks[0]?.ID || '')
+        setIsUsingMock(true)
         setSource('dữ liệu mẫu')
         setSyncState('error')
         setSyncMessage(error instanceof Error ? error.message : 'Không tải được dữ liệu')
       })
-  }, [])
+  }, [hasRemote])
 
-  const openTasks = useMemo(
-    () => dashboard.tasks.filter((task) => !['Done', 'Cancelled'].includes(task.Status)),
-    [dashboard.tasks],
-  )
-
+  const openTasks = useMemo(() => dashboard.tasks.filter(isOpenTask), [dashboard.tasks])
+  const overdueTasks = useMemo(() => openTasks.filter(isOverdue), [openTasks])
+  const upcomingTasks = useMemo(() => sortByDueDate(openTasks), [openTasks])
   const selectedTask =
     dashboard.tasks.find((task) => task.ID === selectedTaskId) ||
-    openTasks[0] ||
+    upcomingTasks[0] ||
     dashboard.tasks[0]
+  const focusTask =
+    openTasks.find((task) => task.Priority === 'P1' && task.Status !== 'Waiting') ||
+    openTasks.find((task) => task.Status === 'Doing') ||
+    upcomingTasks[0]
 
-  const doneCount = dashboard.tasks.filter((task) => task.Status === 'Done').length
-  const expenseLabel = formatMoney(dashboard.metrics.weeklyExpense)
+  const income = dashboard.finance
+    .filter((item) => item.Type === 'income')
+    .reduce((total, item) => total + item.Amount, 0)
+  const expense = dashboard.finance
+    .filter((item) => item.Type === 'expense')
+    .reduce((total, item) => total + item.Amount, 0)
+  const balance = income - expense
+  const activeLabel = views.find((view) => view.id === activeView)?.label || 'Hôm nay'
 
-  const metrics = [
-    ['Đang mở', openTasks.length, 'việc cần xử lý', CheckCircle2],
-    ['Quá hạn', dashboard.metrics.overdueTasks, 'cần xem lại', Bell],
-    ['Chi tuần này', expenseLabel, 'VND', TrendingUp],
-    ['Ghi chú', dashboard.metrics.notes, 'mục đã lưu', NotebookText],
-  ] as const
+  const replaceMockData = isUsingMock && hasRemote
 
-  const board = [
-    ['Mới', dashboard.tasks.filter((task) => task.Status === 'Inbox').length, 'bg-sky-300'],
-    ['Đang làm', dashboard.tasks.filter((task) => task.Status === 'Doing').length, 'bg-amber-300'],
-    ['Đang chờ', dashboard.tasks.filter((task) => task.Status === 'Waiting').length, 'bg-violet-300'],
-    ['Xong', doneCount, 'bg-emerald-300'],
-  ] as const
-
-  const activeLabel = views.find((view) => view.id === activeView)?.label || 'Tổng quan'
-
-  const handleCreateTask = async (draft: TaskDraft) => {
+  const handleCapture = async (draft: CaptureDraft) => {
     setSyncState('saving')
-    setSyncMessage('Đang lưu việc mới')
-    try {
-      const task = await createTask({
-        Title: draft.title.trim(),
-        Priority: draft.priority,
-        Project: draft.project.trim() || 'Personal OS',
-        DueAt: draft.dueAt ? new Date(draft.dueAt).toISOString() : '',
-        Note: draft.note.trim(),
-        Source: 'Web',
-      })
+    setSyncMessage('Đang lưu')
 
-      setDashboard((current) =>
-        withFreshMetrics({
-          ...current,
-          tasks: [task, ...current.tasks.filter((item) => item.ID !== task.ID)],
-        }),
-      )
-      setSelectedTaskId(task.ID)
-      setActiveView('tasks')
-      setIsQuickAddOpen(false)
-      setSource(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Google Sheets' : 'dữ liệu mẫu')
+    try {
+      if (draft.kind === 'task') {
+        const task = await createTask({
+          Title: draft.title.trim(),
+          Priority: draft.priority,
+          Project: draft.project.trim() || 'Personal OS',
+          DueAt: draft.dueAt ? new Date(draft.dueAt).toISOString() : '',
+          Note: draft.note.trim(),
+          Source: 'Web',
+        })
+
+        setDashboard((current) =>
+          withFreshMetrics(
+            replaceMockData
+              ? { ...current, finance: [], notes: [], tasks: [task] }
+              : { ...current, tasks: [task, ...current.tasks.filter((item) => item.ID !== task.ID)] },
+          ),
+        )
+        setSelectedTaskId(task.ID)
+        setActiveView('tasks')
+      }
+
+      if (draft.kind === 'note') {
+        const note = await createNote({
+          Content: draft.content.trim(),
+          Project: draft.project.trim(),
+          Source: 'Web',
+          Type: 'text',
+        })
+
+        setDashboard((current) =>
+          withFreshMetrics(
+            replaceMockData
+              ? { ...current, finance: [], notes: [note], tasks: [] }
+              : { ...current, notes: [note, ...current.notes.filter((item) => item.ID !== note.ID)] },
+          ),
+        )
+        setActiveView('capture')
+      }
+
+      if (draft.kind === 'finance') {
+        const item = await createFinance({
+          Amount: Number(draft.amount || 0),
+          Category: draft.category.trim() || 'general',
+          Date: draft.date || new Date().toISOString().slice(0, 10),
+          Description: draft.title.trim() || draft.category.trim() || 'Giao dịch',
+          Project: draft.project.trim(),
+          Type: draft.financeType,
+        })
+
+        setDashboard((current) =>
+          withFreshMetrics(
+            replaceMockData
+              ? { ...current, finance: [item], notes: [], tasks: [] }
+              : { ...current, finance: [item, ...current.finance.filter((row) => row.ID !== item.ID)] },
+          ),
+        )
+        setActiveView('finance')
+      }
+
+      setIsUsingMock(false)
+      setSource(hasRemote ? 'Google Sheets' : 'dữ liệu mẫu')
       setSyncState('ready')
-      setSyncMessage(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Đã lưu vào Google Sheets' : 'Đã lưu tạm')
+      setSyncMessage(hasRemote ? 'Đã lưu vào Google Sheets' : 'Đã lưu tạm')
+      setIsCaptureOpen(false)
       return true
     } catch (error) {
       setSyncState('error')
-      setSyncMessage(error instanceof Error ? error.message : 'Không lưu được việc mới')
+      setSyncMessage(error instanceof Error ? error.message : 'Không lưu được dữ liệu')
       return false
     }
   }
 
   const handleTaskStatusChange = async (task: Task, status: Task['Status']) => {
     if (task.Status === status || busyTaskId) return
+    if (isUsingMock && hasRemote) {
+      setSyncState('error')
+      setSyncMessage('Dữ liệu mẫu không thể cập nhật. Hãy tạo việc mới trước.')
+      return
+    }
 
     setBusyTaskId(task.ID)
     setSyncState('saving')
@@ -225,8 +287,8 @@ function App() {
       const updatedTask = await updateTaskStatus(task.ID, status)
       const nextTask = updatedTask || {
         ...task,
-        Status: status,
         DoneAt: status === 'Done' ? new Date().toISOString() : '',
+        Status: status,
       }
 
       setDashboard((current) =>
@@ -236,9 +298,8 @@ function App() {
         }),
       )
       setSelectedTaskId(nextTask.ID)
-      setSource(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Google Sheets' : 'dữ liệu mẫu')
       setSyncState('ready')
-      setSyncMessage(import.meta.env.VITE_APPS_SCRIPT_URL ? 'Đã cập nhật Google Sheets' : 'Đã cập nhật tạm')
+      setSyncMessage(hasRemote ? 'Đã cập nhật Google Sheets' : 'Đã cập nhật tạm')
     } catch (error) {
       setSyncState('error')
       setSyncMessage(error instanceof Error ? error.message : 'Không cập nhật được task')
@@ -251,14 +312,14 @@ function App() {
     <main className="relative min-h-screen overflow-hidden bg-[#050609] pb-20 text-zinc-100 lg:pb-0">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 opacity-80"
+        className="pointer-events-none fixed inset-0 opacity-90"
         style={{
           backgroundImage:
-            'linear-gradient(120deg, rgba(255,255,255,0.12), transparent 18%, rgba(125,211,252,0.08) 42%, transparent 64%), linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)',
+            'linear-gradient(120deg, rgba(255,255,255,0.11), transparent 19%, rgba(125,211,252,0.08) 42%, transparent 66%), linear-gradient(rgba(255,255,255,0.032) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px)',
           backgroundSize: '100% 100%, 48px 48px, 48px 48px',
         }}
       />
-      <div className="relative mx-auto grid min-h-screen max-w-[1480px] grid-cols-1 lg:grid-cols-[252px_1fr]">
+      <div className="relative mx-auto grid min-h-screen max-w-[1280px] grid-cols-1 lg:grid-cols-[224px_1fr]">
         <Sidebar
           activeView={activeView}
           setActiveView={setActiveView}
@@ -271,50 +332,63 @@ function App() {
           <Topbar
             activeLabel={activeLabel}
             activeView={activeView}
-            onQuickAdd={() => setIsQuickAddOpen(true)}
+            onCapture={() => setIsCaptureOpen(true)}
             setActiveView={setActiveView}
           />
 
           <div className="p-3 md:p-5">
-            {activeView === 'overview' && (
-              <OverviewView
-                board={board}
+            {activeView === 'today' && (
+              <TodayView
+                balance={balance}
                 busyTaskId={busyTaskId}
-                metrics={metrics}
+                expense={expense}
+                focusTask={focusTask}
+                onCapture={() => setIsCaptureOpen(true)}
                 onStatusChange={handleTaskStatusChange}
-                onQuickAdd={() => setIsQuickAddOpen(true)}
-                selectedTask={selectedTask}
+                openTasks={openTasks}
+                overdueCount={overdueTasks.length}
                 setActiveView={setActiveView}
                 setSelectedTaskId={setSelectedTaskId}
-                tasks={dashboard.tasks}
+                tasks={upcomingTasks}
               />
             )}
             {activeView === 'tasks' && (
               <TasksView
                 busyTaskId={busyTaskId}
+                onCapture={() => setIsCaptureOpen(true)}
                 onStatusChange={handleTaskStatusChange}
-                onQuickAdd={() => setIsQuickAddOpen(true)}
                 selectedTask={selectedTask}
                 setSelectedTaskId={setSelectedTaskId}
                 tasks={dashboard.tasks}
               />
             )}
-            {activeView === 'calendar' && <CalendarView tasks={openTasks} />}
-            {activeView === 'notes' && <NotesView notes={dashboard.notes} />}
-            {activeView === 'finance' && (
-              <FinanceView expenseLabel={expenseLabel} finance={dashboard.finance} />
+            {activeView === 'capture' && (
+              <CaptureView
+                error={syncState === 'error' ? syncMessage : ''}
+                isSaving={syncState === 'saving'}
+                notes={dashboard.notes}
+                onCreate={handleCapture}
+              />
             )}
-            {activeView === 'automation' && <AutomationView source={source} />}
+            {activeView === 'finance' && (
+              <FinanceView
+                balance={balance}
+                expense={expense}
+                finance={dashboard.finance}
+                income={income}
+                onCapture={() => setActiveView('capture')}
+              />
+            )}
           </div>
         </section>
       </div>
 
-      <QuickAddSheet
+      <CaptureModal
         error={syncState === 'error' ? syncMessage : ''}
-        isOpen={isQuickAddOpen}
+        isOpen={isCaptureOpen}
         isSaving={syncState === 'saving'}
-        onClose={() => setIsQuickAddOpen(false)}
-        onCreate={handleCreateTask}
+        onClose={() => setIsCaptureOpen(false)}
+        onCreate={handleCapture}
       />
       <MobileNav activeView={activeView} setActiveView={setActiveView} />
     </main>
@@ -342,7 +416,7 @@ function Sidebar({
   }[syncState]
 
   return (
-    <aside className="hidden border-r border-white/10 bg-white/[0.045] px-3 py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl lg:block">
+    <aside className="hidden border-r border-white/10 bg-white/[0.04] px-3 py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl lg:block">
       <div className="flex items-center gap-3 px-2">
         <div className="grid size-9 place-items-center rounded-md bg-zinc-100 text-zinc-950">
           <Send size={17} />
@@ -356,7 +430,7 @@ function Sidebar({
       <nav className="mt-5 space-y-1">
         {views.map(({ id, label, icon: Icon }) => (
           <button
-            className={`flex min-h-9 w-full items-center gap-3 rounded-md px-2.5 text-left text-sm transition ${
+            className={`flex min-h-10 w-full items-center gap-3 rounded-md px-2.5 text-left text-sm transition ${
               activeView === id
                 ? 'bg-white text-zinc-950 shadow-[0_12px_30px_rgba(255,255,255,0.10)]'
                 : 'text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'
@@ -381,7 +455,6 @@ function Sidebar({
         <p className="mt-3 text-sm text-zinc-300">{source}</p>
         <p className="mt-1 text-xs leading-5 text-zinc-500">{syncMessage}</p>
       </div>
-
     </aside>
   )
 }
@@ -389,31 +462,29 @@ function Sidebar({
 function Topbar({
   activeLabel,
   activeView,
-  onQuickAdd,
+  onCapture,
   setActiveView,
 }: {
   activeLabel: string
   activeView: ViewId
-  onQuickAdd: () => void
+  onCapture: () => void
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050609]/72 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl md:px-5">
+    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050609]/74 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl md:px-5">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">VTARCH OS</p>
           <h2 className="truncate text-lg font-semibold text-white">{activeLabel}</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6]"
-            onClick={onQuickAdd}
-            type="button"
-          >
-            <Plus size={15} />
-            Thêm việc
-          </button>
-        </div>
+        <button
+          className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6]"
+          onClick={onCapture}
+          type="button"
+        >
+          <Plus size={15} />
+          Ghi nhanh
+        </button>
       </div>
 
       <div className="mt-3 hidden gap-1 overflow-x-auto md:flex">
@@ -436,110 +507,74 @@ function Topbar({
   )
 }
 
-function OverviewView({
-  board,
+function TodayView({
+  balance,
   busyTaskId,
-  metrics,
+  expense,
+  focusTask,
+  onCapture,
   onStatusChange,
-  onQuickAdd,
-  selectedTask,
+  openTasks,
+  overdueCount,
   setActiveView,
   setSelectedTaskId,
   tasks,
 }: {
-  board: ReadonlyArray<readonly [string, number, string]>
+  balance: number
   busyTaskId: string
-  metrics: ReadonlyArray<readonly [string, string | number, string, LucideIcon]>
+  expense: number
+  focusTask?: Task
+  onCapture: () => void
   onStatusChange: (task: Task, status: Task['Status']) => void
-  onQuickAdd: () => void
-  selectedTask?: Task
+  openTasks: Task[]
+  overdueCount: number
   setActiveView: (view: ViewId) => void
   setSelectedTaskId: (id: string) => void
   tasks: Task[]
 }) {
   return (
     <div className="space-y-4">
-      <FocusHero selectedTask={selectedTask} tasks={tasks} />
-      <QuickActions onQuickAdd={onQuickAdd} setActiveView={setActiveView} />
+      <FocusCard
+        busyTaskId={busyTaskId}
+        onCapture={onCapture}
+        onStatusChange={onStatusChange}
+        task={focusTask}
+      />
 
-      <section className="grid grid-cols-4 gap-2 rounded-md border border-white/10 bg-white/[0.055] p-2 shadow-[0_24px_80px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl md:gap-3 md:p-3">
-        {metrics.map(([title, value, meta, Icon]) => (
-          <div className="min-w-0 rounded border border-white/10 bg-black/20 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:p-3" key={title}>
-            <div className="flex items-center gap-1.5 md:justify-between">
-              <Icon className="shrink-0 text-zinc-500" size={14} />
-              <p className="min-w-0 truncate text-[10px] font-medium uppercase tracking-[0.08em] text-zinc-500 md:text-xs">{title}</p>
-            </div>
-            <p className="mt-2 truncate text-xl font-semibold text-white md:text-2xl">{value}</p>
-            <p className="mt-0.5 hidden truncate text-xs uppercase tracking-[0.12em] text-zinc-600 sm:block">{meta}</p>
-          </div>
-        ))}
+      <section className="grid grid-cols-3 gap-2">
+        <MetricCard icon={CheckCircle2} label="Đang mở" value={openTasks.length} />
+        <MetricCard icon={Bell} label="Quá hạn" value={overdueCount} />
+        <MetricCard icon={WalletCards} label="Chi" value={formatMoney(expense)} />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Panel title="Hôm nay" action="Xem tất cả" onAction={() => setActiveView('tasks')}>
+      <section className="grid gap-4 xl:grid-cols-[1fr_340px]">
+        <Panel title="Việc cần xử lý" action="Tất cả" onAction={() => setActiveView('tasks')}>
           <TaskList
-            selectedId={selectedTask?.ID}
-            setSelectedTaskId={setSelectedTaskId}
-            tasks={tasks}
+            selectedId={focusTask?.ID}
+            setSelectedTaskId={(id) => {
+              setSelectedTaskId(id)
+              setActiveView('tasks')
+            }}
+            tasks={tasks.slice(0, 6)}
           />
         </Panel>
 
-        <TaskDetail
-          busyTaskId={busyTaskId}
-          onStatusChange={onStatusChange}
-          task={selectedTask}
-        />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Panel title="Nhịp làm việc">
-          <div className="h-56">
-            <ResponsiveContainer height="100%" width="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="done" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor="#a1a1aa" stopOpacity={0.42} />
-                    <stop offset="95%" stopColor="#a1a1aa" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis
-                  axisLine={false}
-                  dataKey="day"
-                  tick={{ fill: '#71717a', fontSize: 12 }}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: '#111318',
-                    border: '1px solid #27272a',
-                    borderRadius: 8,
-                    color: '#f4f4f5',
-                  }}
-                />
-                <Area
-                  dataKey="done"
-                  fill="url(#done)"
-                  stroke="#d4d4d8"
-                  strokeWidth={2}
-                  type="monotone"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-
-        <Panel title="Trạng thái">
-          <div className="grid grid-cols-2 gap-2">
-            {board.map(([label, count, dot]) => (
-              <div className="rounded-md border border-white/10 bg-black/20 p-3" key={label}>
-                <div className="flex items-center gap-2">
-                  <span className={`size-2 rounded-full ${dot}`} />
-                  <span className="text-sm text-zinc-400">{label}</span>
-                </div>
-                <p className="mt-2 text-2xl font-semibold text-white">{count}</p>
-              </div>
-            ))}
+        <Panel title="Tài chính">
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">Còn lại</p>
+              <p className={balance >= 0 ? 'mt-2 text-3xl font-semibold text-white' : 'mt-2 text-3xl font-semibold text-amber-200'}>
+                {formatMoney(balance)}
+              </p>
+            </div>
+            <button
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.05] text-sm font-medium text-zinc-200 hover:bg-white/[0.08]"
+              onClick={() => setActiveView('finance')}
+              type="button"
+            >
+              <CreditCard size={15} />
+              Xem thu chi
+            </button>
           </div>
         </Panel>
       </section>
@@ -547,179 +582,175 @@ function OverviewView({
   )
 }
 
-function QuickActions({
-  onQuickAdd,
-  setActiveView,
+function FocusCard({
+  busyTaskId,
+  onCapture,
+  onStatusChange,
+  task,
 }: {
-  onQuickAdd: () => void
-  setActiveView: (view: ViewId) => void
+  busyTaskId: string
+  onCapture: () => void
+  onStatusChange: (task: Task, status: Task['Status']) => void
+  task?: Task
 }) {
-  const actions: Array<{
-    accent: string
-    description: string
-    icon: LucideIcon
-    label: string
-    target: ViewId
-  }> = [
-    {
-      accent: 'from-emerald-300/22 to-transparent text-emerald-200',
-      description: 'Task mới',
-      icon: CheckCircle2,
-      label: 'Ghi việc mới',
-      target: 'tasks',
-    },
-    {
-      accent: 'from-sky-300/22 to-transparent text-sky-200',
-      description: 'Ý tưởng',
-      icon: NotebookText,
-      label: 'Ghi chú',
-      target: 'notes',
-    },
-    {
-      accent: 'from-amber-300/22 to-transparent text-amber-200',
-      description: 'Thu chi',
-      icon: WalletCards,
-      label: 'Tài chính',
-      target: 'finance',
-    },
-    {
-      accent: 'from-violet-300/22 to-transparent text-violet-200',
-      description: 'Bot',
-      icon: Bot,
-      label: 'Tự động hóa',
-      target: 'automation',
-    },
-  ]
-
-  const [primaryAction, ...secondaryActions] = actions
-  const PrimaryIcon = primaryAction.icon
-
   return (
-    <section className="grid gap-3 md:grid-cols-[1.2fr_2fr]">
-      <button
-        className="group relative min-h-[116px] overflow-hidden rounded-md border border-white/25 bg-white/[0.72] px-4 py-4 text-left text-zinc-950 shadow-[0_30px_90px_rgba(210,255,241,0.13),inset_0_1px_0_rgba(255,255,255,0.72)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:bg-white"
-        onClick={onQuickAdd}
-        type="button"
-      >
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"
-        />
-        <span className="relative inline-flex size-10 items-center justify-center rounded-md bg-black/80 text-[#d6fff0] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-          <PrimaryIcon size={18} />
-        </span>
-        <span className="relative mt-4 block text-lg font-bold">{primaryAction.label}</span>
-        <span className="relative mt-1 block text-sm text-zinc-700">{primaryAction.description}</span>
-      </button>
-
-      <div className="grid grid-cols-3 gap-2">
-        {secondaryActions.map(({ accent, description, icon: Icon, label, target }) => (
-        <button
-          className="group min-h-[116px] overflow-hidden rounded-md border border-white/10 bg-white/[0.05] p-3 text-left shadow-[0_18px_55px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]"
-          key={label}
-          onClick={() => setActiveView(target)}
-          type="button"
-        >
-          <span className={`inline-flex size-8 items-center justify-center rounded-md bg-gradient-to-br ${accent}`}>
-            <Icon size={16} />
-          </span>
-          <span className="mt-3 block truncate text-sm font-semibold text-white">{label}</span>
-          <span className="mt-1 block text-xs text-zinc-500">{description}</span>
-        </button>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function FocusHero({ selectedTask, tasks }: { selectedTask?: Task; tasks: Task[] }) {
-  const todayCount = tasks.filter((task) => task.DueAt).length
-  const doneCount = tasks.filter((task) => task.Status === 'Done').length
-  const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0
-  return (
-    <section className="relative overflow-hidden rounded-md border border-white/[0.12] bg-white/[0.065] shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl">
+    <section className="relative overflow-hidden rounded-md border border-white/[0.12] bg-white/[0.065] p-4 shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:p-5">
       <div
         aria-hidden="true"
-        className="absolute inset-0 opacity-90"
+        className="absolute inset-0 opacity-80"
         style={{
           background:
             'linear-gradient(115deg, rgba(255,255,255,0.12), transparent 28%), linear-gradient(245deg, rgba(125,211,252,0.12), transparent 34%)',
         }}
       />
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent" />
-      <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="relative border-b border-white/10 p-4 md:p-5 lg:border-b-0 lg:border-r">
-          <div className="flex items-center justify-between gap-3">
-            <span className="rounded border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-medium text-[#dffcf2] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-              Hôm nay
-            </span>
-            <span className="text-xs text-zinc-500">{todayCount} lịch hôm nay</span>
-          </div>
-          <h3 className="mt-4 max-w-2xl text-2xl font-semibold text-white md:text-3xl">
-            {selectedTask?.Title || 'Chọn việc quan trọng nhất để bắt đầu ngay.'}
+      <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <span className="rounded border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-medium text-[#dffcf2]">
+            Hôm nay
+          </span>
+          <h3 className="mt-4 max-w-3xl text-2xl font-semibold text-white md:text-3xl">
+            {task?.Title || 'Chưa có việc cần tập trung.'}
           </h3>
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
-              {selectedTask?.Project || 'Personal OS'}
+              {task?.Project || 'Personal OS'}
             </span>
             <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
-              Hạn: {formatDate(selectedTask?.DueAt)}
+              {formatDate(task?.DueAt)}
             </span>
             <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
-              {selectedTask?.Priority || 'P2'}
+              {task?.Priority || 'P2'}
             </span>
           </div>
-          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-black/30 ring-1 ring-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#dffcf2] via-sky-200 to-white shadow-[0_0_24px_rgba(186,230,253,0.28)]"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-zinc-500">{progress}% hoàn thành</p>
         </div>
-        <div className="relative grid grid-cols-3 divide-x divide-white/10 lg:grid-cols-1 lg:divide-x-0 lg:divide-y">
-          {[
-            ['Tập trung', selectedTask?.Status ? statusLabel[selectedTask.Status] : 'Sẵn sàng'],
-            ['Bot', 'Telegram'],
-            ['Sheet', 'Google'],
-          ].map(([label, value]) => (
-            <div className="p-4" key={label}>
-              <p className="text-xs uppercase tracking-[0.16em] text-zinc-600">{label}</p>
-              <p className="mt-2 truncate text-sm font-medium text-zinc-100 md:text-base">{value}</p>
-            </div>
-          ))}
+
+        <div className="grid grid-cols-2 gap-2 md:w-64">
+          <button
+            className="min-h-10 rounded-md border border-white/10 bg-white/[0.055] text-sm font-medium text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!task || busyTaskId === task.ID || task.Status === 'Doing'}
+            onClick={() => task && onStatusChange(task, 'Doing')}
+            type="button"
+          >
+            Đang làm
+          </button>
+          <button
+            className="min-h-10 rounded-md bg-white text-sm font-semibold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!task || busyTaskId === task.ID || task.Status === 'Done'}
+            onClick={() => task && onStatusChange(task, 'Done')}
+            type="button"
+          >
+            {task && busyTaskId === task.ID ? 'Đang lưu' : 'Xong'}
+          </button>
+          <button
+            className="col-span-2 min-h-10 rounded-md border border-white/10 bg-black/20 text-sm font-medium text-zinc-300 hover:bg-white/[0.06]"
+            onClick={onCapture}
+            type="button"
+          >
+            + Ghi nhanh
+          </button>
         </div>
       </div>
     </section>
   )
 }
 
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon
+  label: string
+  value: number | string
+}) {
+  return (
+    <article className="min-w-0 rounded-md border border-white/10 bg-white/[0.055] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+      <div className="flex items-center gap-2 text-zinc-500">
+        <Icon size={14} />
+        <span className="truncate text-xs uppercase tracking-[0.1em]">{label}</span>
+      </div>
+      <p className="mt-2 truncate text-2xl font-semibold text-white">{value}</p>
+    </article>
+  )
+}
+
 function TasksView({
   busyTaskId,
+  onCapture,
   onStatusChange,
-  onQuickAdd,
   selectedTask,
   setSelectedTaskId,
   tasks,
 }: {
   busyTaskId: string
+  onCapture: () => void
   onStatusChange: (task: Task, status: Task['Status']) => void
-  onQuickAdd: () => void
   selectedTask?: Task
   setSelectedTaskId: (id: string) => void
   tasks: Task[]
 }) {
+  const [filter, setFilter] = useState<TaskStatusFilter>('Open')
+  const filteredTasks = tasks.filter((task) => {
+    if (filter === 'All') return true
+    if (filter === 'Open') return isOpenTask(task)
+    return task.Status === filter
+  })
+
   return (
-    <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
-      <Panel title="Công việc" action="Thêm task" onAction={onQuickAdd}>
-        <TaskList selectedId={selectedTask?.ID} setSelectedTaskId={setSelectedTaskId} tasks={tasks} />
+    <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
+      <Panel title="Công việc" action="Ghi nhanh" onAction={onCapture}>
+        <TaskFilters active={filter} onChange={setFilter} />
+        <div className="mt-3">
+          <TaskList
+            selectedId={selectedTask?.ID}
+            setSelectedTaskId={setSelectedTaskId}
+            tasks={filteredTasks}
+          />
+        </div>
       </Panel>
+
       <TaskDetail
         busyTaskId={busyTaskId}
         onStatusChange={onStatusChange}
         task={selectedTask}
       />
     </section>
+  )
+}
+
+function TaskFilters({
+  active,
+  onChange,
+}: {
+  active: TaskStatusFilter
+  onChange: (filter: TaskStatusFilter) => void
+}) {
+  const filters: Array<{ id: TaskStatusFilter; label: string }> = [
+    { id: 'Open', label: 'Đang mở' },
+    { id: 'Inbox', label: 'Mới' },
+    { id: 'Doing', label: 'Đang làm' },
+    { id: 'Waiting', label: 'Chờ' },
+    { id: 'Done', label: 'Xong' },
+    { id: 'All', label: 'Tất cả' },
+  ]
+
+  return (
+    <div className="flex gap-1 overflow-x-auto rounded-md border border-white/10 bg-black/20 p-1">
+      {filters.map((filter) => (
+        <button
+          className={`min-h-8 shrink-0 rounded px-3 text-xs font-medium transition ${
+            active === filter.id
+              ? 'bg-white text-zinc-950'
+              : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
+          }`}
+          key={filter.id}
+          onClick={() => onChange(filter.id)}
+          type="button"
+        >
+          {filter.label}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -733,12 +764,7 @@ function TaskList({
   tasks: Task[]
 }) {
   if (!tasks.length) {
-    return (
-      <EmptyState
-        body="Chưa có dữ liệu."
-        title="Chưa có công việc"
-      />
-    )
+    return <EmptyState body="Chưa có dữ liệu." title="Danh sách trống" />
   }
 
   return (
@@ -766,7 +792,6 @@ function TaskList({
             <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
               <span>{task.Project || 'Không có dự án'}</span>
               <span>{formatDate(task.DueAt)}</span>
-              <span>{task.Source || 'Web'}</span>
             </span>
           </span>
           <span className={`rounded px-2 py-1 text-xs ring-1 ${priorityTone[task.Priority]}`}>
@@ -790,18 +815,16 @@ function TaskDetail({
   if (!task) {
     return (
       <Panel title="Chi tiết">
-        <EmptyState body="Chọn một task để xem nội dung chi tiết." title="Chưa chọn task" />
+        <EmptyState body="Chọn một việc để xem chi tiết." title="Chưa chọn việc" />
       </Panel>
     )
   }
 
   return (
-    <Panel title="Chi tiết công việc">
+    <Panel title="Chi tiết">
       <div className="space-y-4">
         <div>
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-xl font-semibold leading-7 text-white">{task.Title}</h3>
-          </div>
+          <h3 className="text-xl font-semibold leading-7 text-white">{task.Title}</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             <span className={`rounded px-2.5 py-1 text-xs ring-1 ${statusTone[task.Status]}`}>
               {statusLabel[task.Status]}
@@ -818,9 +841,8 @@ function TaskDetail({
             ['Hạn', formatDate(task.DueAt)],
             ['Nhắc', formatDate(task.RemindAt)],
             ['Nguồn', task.Source || 'Web'],
-            ['Tags', task.Tags || 'Không có'],
           ].map(([label, value]) => (
-            <div className="grid grid-cols-[88px_1fr] gap-3" key={label}>
+            <div className="grid grid-cols-[72px_1fr] gap-3" key={label}>
               <dt className="text-zinc-500">{label}</dt>
               <dd className="text-zinc-300">{value}</dd>
             </div>
@@ -830,7 +852,7 @@ function TaskDetail({
         <div className="rounded-md border border-white/10 bg-black/20 p-3">
           <p className="text-xs uppercase tracking-[0.14em] text-zinc-600">Ghi chú</p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            {task.Note || 'Chưa có ghi chú cho công việc này.'}
+            {task.Note || 'Chưa có ghi chú.'}
           </p>
         </div>
 
@@ -860,74 +882,34 @@ function TaskDetail({
   )
 }
 
-function CalendarView({ tasks }: { tasks: Task[] }) {
-  const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
-  const weekItems = weekDays.map((day, index) => ({
-    day,
-    task: tasks[index],
-  }))
-
+function CaptureView({
+  error,
+  isSaving,
+  notes,
+  onCreate,
+}: {
+  error: string
+  isSaving: boolean
+  notes: DashboardData['notes']
+  onCreate: (draft: CaptureDraft) => Promise<boolean>
+}) {
   return (
-    <section className="grid gap-4 xl:grid-cols-[1fr_360px]">
-      <Panel title="Lịch tuần">
-        <div className="space-y-2 md:hidden">
-          {weekItems.map(({ day, task }, index) => (
-            <div className="rounded-md border border-white/10 bg-black/20 p-3" key={day}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{day}</p>
-                  <p className="mt-1 text-sm font-semibold text-white">Ngày {index + 1}</p>
-                </div>
-                <span className="rounded bg-zinc-900 px-2 py-1 text-xs text-zinc-400">
-                  {task ? formatDate(task.DueAt) : 'Trống'}
-                </span>
-              </div>
-              {task ? (
-                <div className="mt-3 rounded-md border border-emerald-400/20 bg-emerald-400/10 p-3">
-                  <p className="text-sm font-medium leading-5 text-emerald-100">{task.Title}</p>
-                  <p className="mt-1 text-xs text-emerald-200/70">{task.Project || 'Personal OS'}</p>
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-
-        <div className="hidden grid-cols-7 gap-2 text-center text-xs text-zinc-500 md:grid">
-          {weekDays.map((day) => (
-            <div className="rounded-md border border-white/10 bg-black/20 py-2" key={day}>
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 hidden grid-cols-7 gap-2 md:grid">
-          {weekItems.map(({ day, task }, index) => (
-            <div className="min-h-32 rounded-md border border-white/10 bg-black/20 p-2 text-xs text-zinc-600" key={day}>
-              {index + 1}
-              {task ? (
-                <div className="mt-3 rounded border border-emerald-400/20 bg-emerald-400/10 p-2 text-left text-emerald-100">
-                  <p className="line-clamp-2 font-medium">
-                    {task.Title}
-                  </p>
-                  <p className="mt-1 text-[11px] text-emerald-200/70">
-                    {formatDate(task.DueAt)}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
+    <section className="grid gap-4 xl:grid-cols-[420px_1fr]">
+      <Panel title="Ghi nhanh">
+        <CaptureForm error={error} isSaving={isSaving} onCreate={onCreate} />
       </Panel>
-      <Panel title="Sắp tới">
+
+      <Panel title="Ghi chú gần đây">
         <div className="space-y-2">
-          {tasks.length ? (
-            tasks.slice(0, 5).map((task) => (
-              <div className="rounded-md border border-white/10 bg-black/20 p-3" key={task.ID}>
-                <p className="text-sm font-medium text-white">{task.Title}</p>
-                <p className="mt-1 text-xs text-zinc-500">{formatDate(task.DueAt)}</p>
-              </div>
+          {notes.length ? (
+            notes.slice(0, 8).map((note) => (
+              <article className="rounded-md border border-white/10 bg-black/20 p-3" key={note.ID}>
+                <p className="text-sm leading-6 text-zinc-300">{note.Content}</p>
+                <p className="mt-2 text-xs text-zinc-500">{note.Project || 'Quick capture'}</p>
+              </article>
             ))
           ) : (
-            <EmptyState body="Không có lịch sắp tới." title="Lịch trống" />
+            <EmptyState body="Chưa có dữ liệu." title="Chưa có ghi chú" />
           )}
         </div>
       </Panel>
@@ -935,83 +917,322 @@ function CalendarView({ tasks }: { tasks: Task[] }) {
   )
 }
 
-function NotesView({ notes }: { notes: DashboardData['notes'] }) {
+function CaptureForm({
+  error,
+  isSaving,
+  onCreate,
+}: {
+  error: string
+  isSaving: boolean
+  onCreate: (draft: CaptureDraft) => Promise<boolean>
+}) {
+  const [draft, setDraft] = useState<CaptureDraft>(emptyDraft)
+
+  const isValid =
+    draft.kind === 'task'
+      ? Boolean(draft.title.trim())
+      : draft.kind === 'note'
+        ? Boolean(draft.content.trim())
+        : Boolean(Number(draft.amount) > 0)
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!isValid || isSaving) return
+    const saved = await onCreate(draft)
+    if (saved) {
+      setDraft((current) => ({
+        ...emptyDraft,
+        date: new Date().toISOString().slice(0, 10),
+        kind: current.kind,
+      }))
+    }
+  }
+
   return (
-    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      <article className="rounded-md border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
-        <span className="rounded border border-sky-400/20 bg-sky-400/10 px-2.5 py-1 text-xs font-medium text-sky-200">
-          Capture
-        </span>
-        <h3 className="mt-4 text-lg font-semibold text-white">Kho ý tưởng nhanh</h3>
-        <p className="mt-2 text-sm leading-6 text-zinc-500">
-          Ghi lại ý tưởng trước khi biến thành việc.
+    <form onSubmit={handleSubmit}>
+      <div className="grid grid-cols-3 gap-1 rounded-md border border-white/10 bg-black/20 p-1">
+        {[
+          ['task', 'Việc', CheckCircle2],
+          ['note', 'Note', NotebookText],
+          ['finance', 'Thu chi', WalletCards],
+        ].map(([kind, label, Icon]) => {
+          const TypedIcon = Icon as LucideIcon
+          return (
+            <button
+              className={`min-h-10 rounded text-sm font-medium transition ${
+                draft.kind === kind
+                  ? 'bg-white text-zinc-950'
+                  : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
+              }`}
+              key={kind as string}
+              onClick={() => setDraft((current) => ({ ...current, kind: kind as CaptureKind }))}
+              type="button"
+            >
+              <span className="inline-flex items-center gap-2">
+                <TypedIcon size={14} />
+                {label as string}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {draft.kind === 'task' ? (
+        <TaskCaptureFields draft={draft} setDraft={setDraft} />
+      ) : null}
+      {draft.kind === 'note' ? (
+        <NoteCaptureFields draft={draft} setDraft={setDraft} />
+      ) : null}
+      {draft.kind === 'finance' ? (
+        <FinanceCaptureFields draft={draft} setDraft={setDraft} />
+      ) : null}
+
+      <button
+        className="mt-4 min-h-11 w-full rounded-md bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={!isValid || isSaving}
+        type="submit"
+      >
+        {isSaving ? 'Đang lưu...' : 'Lưu'}
+      </button>
+      {error ? (
+        <p className="mt-3 rounded-md border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
+          {error}
         </p>
-      </article>
-      {notes.length ? (
-        notes.map((note) => (
-          <article className="rounded-md border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={note.ID}>
-            <p className="text-sm leading-6 text-zinc-300">{note.Content}</p>
-            <div className="mt-4 flex items-center justify-between text-xs text-zinc-500">
-              <span>{note.Project || 'Quick capture'}</span>
-              <span>{note.Source}</span>
-            </div>
-          </article>
-        ))
-      ) : (
-        <EmptyState body="Chưa có dữ liệu." title="Chưa có ghi chú" />
-      )}
-    </section>
+      ) : null}
+    </form>
+  )
+}
+
+function TaskCaptureFields({
+  draft,
+  setDraft,
+}: {
+  draft: CaptureDraft
+  setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
+}) {
+  return (
+    <div className="mt-4 space-y-3">
+      <FieldLabel label="Việc cần làm">
+        <input
+          autoFocus
+          className="field-input"
+          onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+          placeholder="Gọi khách xác nhận bản vẽ"
+          value={draft.title}
+        />
+      </FieldLabel>
+      <div className="grid grid-cols-2 gap-3">
+        <FieldLabel label="Dự án">
+          <input
+            className="field-input"
+            onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
+            placeholder="Personal OS"
+            value={draft.project}
+          />
+        </FieldLabel>
+        <FieldLabel label="Ưu tiên">
+          <select
+            className="field-input"
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, priority: event.target.value as Task['Priority'] }))
+            }
+            value={draft.priority}
+          >
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+          </select>
+        </FieldLabel>
+      </div>
+      <FieldLabel label="Hạn">
+        <input
+          className="field-input"
+          onChange={(event) => setDraft((current) => ({ ...current, dueAt: event.target.value }))}
+          type="datetime-local"
+          value={draft.dueAt}
+        />
+      </FieldLabel>
+      <FieldLabel label="Ghi chú">
+        <textarea
+          className="field-input min-h-20 resize-none py-2"
+          onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
+          placeholder="Thông tin thêm nếu cần"
+          value={draft.note}
+        />
+      </FieldLabel>
+    </div>
+  )
+}
+
+function NoteCaptureFields({
+  draft,
+  setDraft,
+}: {
+  draft: CaptureDraft
+  setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
+}) {
+  return (
+    <div className="mt-4 space-y-3">
+      <FieldLabel label="Nội dung">
+        <textarea
+          autoFocus
+          className="field-input min-h-32 resize-none py-2"
+          onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
+          placeholder="Ý tưởng, link, ghi chú nhanh"
+          value={draft.content}
+        />
+      </FieldLabel>
+      <FieldLabel label="Dự án">
+        <input
+          className="field-input"
+          onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
+          placeholder="Quick capture"
+          value={draft.project}
+        />
+      </FieldLabel>
+    </div>
+  )
+}
+
+function FinanceCaptureFields({
+  draft,
+  setDraft,
+}: {
+  draft: CaptureDraft
+  setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
+}) {
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-black/20 p-1">
+        {[
+          ['expense', 'Chi'],
+          ['income', 'Thu'],
+        ].map(([type, label]) => (
+          <button
+            className={`min-h-9 rounded text-sm font-medium transition ${
+              draft.financeType === type
+                ? 'bg-white text-zinc-950'
+                : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
+            }`}
+            key={type}
+            onClick={() =>
+              setDraft((current) => ({ ...current, financeType: type as CaptureDraft['financeType'] }))
+            }
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <FieldLabel label="Số tiền">
+        <input
+          autoFocus
+          className="field-input"
+          inputMode="numeric"
+          onChange={(event) => setDraft((current) => ({ ...current, amount: event.target.value }))}
+          placeholder="250000"
+          type="number"
+          value={draft.amount}
+        />
+      </FieldLabel>
+      <div className="grid grid-cols-2 gap-3">
+        <FieldLabel label="Mô tả">
+          <input
+            className="field-input"
+            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+            placeholder="Ăn trưa"
+            value={draft.title}
+          />
+        </FieldLabel>
+        <FieldLabel label="Nhóm">
+          <input
+            className="field-input"
+            onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
+            placeholder="ăn uống"
+            value={draft.category}
+          />
+        </FieldLabel>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <FieldLabel label="Dự án">
+          <input
+            className="field-input"
+            onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
+            placeholder="Khách A"
+            value={draft.project}
+          />
+        </FieldLabel>
+        <FieldLabel label="Ngày">
+          <input
+            className="field-input"
+            onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
+            type="date"
+            value={draft.date}
+          />
+        </FieldLabel>
+      </div>
+    </div>
+  )
+}
+
+function FieldLabel({
+  children,
+  label,
+}: {
+  children: React.ReactNode
+  label: string
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">{label}</span>
+      <div className="mt-2">{children}</div>
+    </label>
   )
 }
 
 function FinanceView({
-  expenseLabel,
+  balance,
+  expense,
   finance,
+  income,
+  onCapture,
 }: {
-  expenseLabel: string
+  balance: number
+  expense: number
   finance: DashboardData['finance']
+  income: number
+  onCapture: () => void
 }) {
-  const income = finance
-    .filter((item) => item.Type === 'income')
-    .reduce((total, item) => total + item.Amount, 0)
-  const expense = finance
-    .filter((item) => item.Type === 'expense')
-    .reduce((total, item) => total + item.Amount, 0)
-  const balance = income - expense
-
   return (
     <section className="grid gap-4 xl:grid-cols-[360px_1fr]">
-      <Panel title="Tổng quan">
-        <p className="text-3xl font-semibold text-white">{expenseLabel} VND</p>
-        <p className="mt-1 text-sm text-zinc-500">Chi tuần này</p>
-        <div className="mt-5 grid gap-2">
+      <Panel title="Tài chính" action="Ghi nhanh" onAction={onCapture}>
+        <div className="space-y-2">
           {[
-            ['Thu', formatMoney(income), 'text-emerald-300'],
-            ['Chi', formatMoney(expense), 'text-rose-300'],
-            ['Còn lại', formatMoney(balance), balance >= 0 ? 'text-sky-300' : 'text-amber-300'],
+            ['Thu', income, 'text-emerald-300'],
+            ['Chi', expense, 'text-rose-300'],
+            ['Còn lại', balance, balance >= 0 ? 'text-sky-300' : 'text-amber-300'],
           ].map(([label, value, tone]) => (
-            <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-3 py-2" key={label}>
-              <span className="text-sm text-zinc-500">{label}</span>
-              <span className={`text-sm font-semibold ${tone}`}>{value} VND</span>
+            <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-3 py-3" key={label as string}>
+              <span className="text-sm text-zinc-500">{label as string}</span>
+              <span className={`text-sm font-semibold ${tone as string}`}>
+                {formatMoney(Number(value))} VND
+              </span>
             </div>
           ))}
         </div>
-        <button className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-md bg-zinc-100 px-3 text-sm font-medium text-zinc-950">
-          <WalletCards size={16} />
-          Ghi giao dịch
-        </button>
       </Panel>
-      <Panel title="Giao dịch">
+
+      <Panel title="Giao dịch gần đây">
         <div className="space-y-2">
           {finance.length ? (
-            finance.map((item) => (
+            finance.slice(0, 12).map((item) => (
               <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 p-3" key={item.ID}>
-                <div>
-                  <p className="text-sm font-medium text-white">{item.Description || item.Category}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white">{item.Description || item.Category}</p>
                   <p className="mt-1 text-xs text-zinc-500">{item.Date} · {item.Type}</p>
                 </div>
                 <span className={item.Type === 'income' ? 'text-emerald-300' : 'text-rose-300'}>
-                  {formatMoney(item.Amount)} VND
+                  {formatMoney(item.Amount)}
                 </span>
               </div>
             ))
@@ -1024,35 +1245,7 @@ function FinanceView({
   )
 }
 
-function AutomationView({ source }: { source: string }) {
-  return (
-    <section className="grid gap-3 md:grid-cols-3">
-      {[
-        ['Telegram Webhook', 'Tạo task, note, tài chính', 'Online'],
-        ['Morning report', 'Tóm tắt 08:00', 'Ready'],
-        ['Reminder scan', 'Quét nhắc việc', 'Ready'],
-      ].map(([title, description, status]) => (
-        <div className="rounded-md border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]" key={title}>
-          <div className="flex items-center justify-between">
-            <span className="grid size-10 place-items-center rounded-md border border-emerald-400/20 bg-emerald-400/10 text-emerald-200">
-              <Bot size={18} />
-            </span>
-            <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-xs text-zinc-300">
-              {status}
-            </span>
-          </div>
-          <h3 className="mt-4 font-semibold text-white">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">{description}</p>
-        </div>
-      ))}
-      <div className="rounded-md border border-white/10 bg-white/[0.055] p-4 md:col-span-3">
-        <p className="text-sm text-zinc-400">Nguồn: {source}</p>
-      </div>
-    </section>
-  )
-}
-
-function QuickAddSheet({
+function CaptureModal({
   error,
   isOpen,
   isSaving,
@@ -1063,42 +1256,17 @@ function QuickAddSheet({
   isOpen: boolean
   isSaving: boolean
   onClose: () => void
-  onCreate: (draft: TaskDraft) => Promise<boolean>
+  onCreate: (draft: CaptureDraft) => Promise<boolean>
 }) {
-  const [draft, setDraft] = useState<TaskDraft>({
-    dueAt: '',
-    note: '',
-    priority: 'P2',
-    project: '',
-    title: '',
-  })
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!draft.title.trim() || isSaving) return
-    const saved = await onCreate(draft)
-    if (!saved) return
-    setDraft({
-      dueAt: '',
-      note: '',
-      priority: 'P2',
-      project: '',
-      title: '',
-    })
-  }
-
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-black/60 p-2 backdrop-blur-md md:items-center md:justify-center">
-      <form
-        className="w-full rounded-xl border border-white/10 bg-white/[0.075] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:max-w-lg"
-        onSubmit={handleSubmit}
-      >
-        <div className="flex items-start justify-between gap-3">
+      <div className="w-full rounded-xl border border-white/10 bg-[#0b0d12]/85 p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:max-w-lg">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">Ghi nhanh</p>
-            <h3 className="mt-1 text-xl font-semibold text-white">Thêm việc mới</h3>
+            <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">Capture</p>
+            <h3 className="mt-1 text-xl font-semibold text-white">Ghi nhanh</h3>
           </div>
           <button
             className="grid size-9 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
@@ -1108,89 +1276,8 @@ function QuickAddSheet({
             <X size={17} />
           </button>
         </div>
-
-        <label className="mt-4 block">
-          <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Việc cần làm</span>
-          <input
-            autoFocus
-            className="mt-2 min-h-12 w-full rounded-md border border-white/10 bg-black/20 px-3 text-base text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
-            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-            placeholder="Ví dụ: Gọi khách xác nhận bản vẽ"
-            value={draft.title}
-          />
-        </label>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Dự án</span>
-            <input
-              className="mt-2 min-h-11 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
-              onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
-              placeholder="Personal OS"
-              value={draft.project}
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Ưu tiên</span>
-            <select
-              className="mt-2 min-h-11 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  priority: event.target.value as Task['Priority'],
-                }))
-              }
-              value={draft.priority}
-            >
-              <option value="P1">P1 - Gấp</option>
-              <option value="P2">P2 - Quan trọng</option>
-              <option value="P3">P3 - Bình thường</option>
-            </select>
-          </label>
-        </div>
-
-        <label className="mt-3 block">
-          <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Hạn xử lý</span>
-          <input
-            className="mt-2 min-h-11 w-full rounded-md border border-white/10 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-emerald-300"
-            onChange={(event) => setDraft((current) => ({ ...current, dueAt: event.target.value }))}
-            type="datetime-local"
-            value={draft.dueAt}
-          />
-        </label>
-
-        <label className="mt-3 block">
-          <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">Ghi chú</span>
-          <textarea
-            className="mt-2 min-h-20 w-full resize-none rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-emerald-300"
-            onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
-            placeholder="Thông tin thêm nếu cần"
-            value={draft.note}
-          />
-        </label>
-
-        <div className="mt-4 grid grid-cols-[1fr_1.4fr] gap-2">
-          <button
-            className="min-h-11 rounded-md border border-white/10 bg-white/[0.035] text-sm font-medium text-zinc-300"
-            onClick={onClose}
-            type="button"
-          >
-            Đóng
-          </button>
-          <button
-            className="min-h-11 rounded-md bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!draft.title.trim() || isSaving}
-            type="submit"
-          >
-            {isSaving ? 'Đang lưu...' : 'Tạo việc'}
-          </button>
-        </div>
-        {error ? (
-          <p className="mt-3 rounded-md border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
-            {error}
-          </p>
-        ) : null}
-      </form>
+        <CaptureForm error={error} isSaving={isSaving} onCreate={onCreate} />
+      </div>
     </div>
   )
 }
@@ -1212,12 +1299,11 @@ function Panel({
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         {action ? (
           <button
-            className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-100"
+            className="text-xs font-medium text-zinc-500 hover:text-zinc-100"
             onClick={onAction}
             type="button"
           >
             {action}
-            <ArrowUpRight size={13} />
           </button>
         ) : null}
       </div>
@@ -1243,7 +1329,7 @@ function MobileNav({
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-6 rounded-xl border border-white/10 bg-white/[0.075] p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl lg:hidden">
+    <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-4 rounded-xl border border-white/10 bg-white/[0.075] p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl lg:hidden">
       {views.map(({ id, label, icon: Icon }) => (
         <button
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] transition ${

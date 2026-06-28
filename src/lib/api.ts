@@ -1,4 +1,11 @@
-import { dashboardSchema, taskSchema, type DashboardData, type Task } from '@/types'
+import {
+  dashboardSchema,
+  financeSchema,
+  noteSchema,
+  taskSchema,
+  type DashboardData,
+  type Task,
+} from '@/types'
 import { mockDashboardData } from '@/lib/mock-data'
 
 type ApiResponse<T> = {
@@ -16,6 +23,24 @@ type TaskInput = {
   Project?: string
   Source?: string
   Title: string
+}
+
+type NoteInput = {
+  Content: string
+  Project?: string
+  Source?: string
+  Tags?: string
+  Type?: string
+}
+
+type FinanceInput = {
+  Amount: number
+  Category?: string
+  Date?: string
+  Description?: string
+  PaymentMethod?: string
+  Project?: string
+  Type: DashboardData['finance'][number]['Type']
 }
 
 function getAppsScriptUrl(action?: string) {
@@ -77,6 +102,45 @@ export async function createTask(data: TaskInput): Promise<Task> {
 
   const task = await postAppsScript<unknown>('createTask', { data })
   return taskSchema.parse(task)
+}
+
+export async function createNote(data: NoteInput): Promise<DashboardData['notes'][number]> {
+  if (!appsScriptUrl) {
+    return noteSchema.parse({
+      ID: `local-note-${Date.now()}`,
+      Content: data.Content,
+      Type: data.Type || 'text',
+      Tags: data.Tags || '',
+      Project: data.Project || '',
+      LinkedTaskID: '',
+      FileURL: '',
+      CreatedAt: new Date().toISOString(),
+      Source: data.Source || 'Web',
+    })
+  }
+
+  const note = await postAppsScript<unknown>('createNote', { data })
+  return noteSchema.parse(note)
+}
+
+export async function createFinance(data: FinanceInput): Promise<DashboardData['finance'][number]> {
+  if (!appsScriptUrl) {
+    return financeSchema.parse({
+      ID: `local-finance-${Date.now()}`,
+      Date: data.Date || new Date().toISOString().slice(0, 10),
+      Type: data.Type,
+      Amount: data.Amount,
+      Category: data.Category || 'general',
+      Description: data.Description || '',
+      Project: data.Project || '',
+      PaymentMethod: data.PaymentMethod || '',
+      ReceiptURL: '',
+      CreatedAt: new Date().toISOString(),
+    })
+  }
+
+  const finance = await postAppsScript<unknown>('createFinance', { data })
+  return financeSchema.parse(finance)
 }
 
 export async function updateTaskStatus(id: string, status: Task['Status']): Promise<Task | null> {
