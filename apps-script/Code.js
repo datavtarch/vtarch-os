@@ -8,25 +8,138 @@ const SHEETS = {
   Logs: ['Time', 'Action', 'Payload', 'Result'],
 }
 
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('VTARCH OS')
+    .addItem('Cài đặt nhanh', 'showSetupDialog')
+    .addItem('Tạo/cập nhật bảng', 'setup')
+    .addItem('Test Telegram', 'testTelegram')
+    .addToUi()
+}
+
+function showSetupDialog() {
+  const html = HtmlService.createHtmlOutput(`
+    <style>
+      body { background:#0b0d12; color:#f4f4f5; font-family:Arial,sans-serif; margin:0; padding:18px; }
+      label { display:block; margin:12px 0; }
+      span { color:#a1a1aa; display:block; font-size:12px; margin-bottom:6px; }
+      input { background:#050609; border:1px solid #27272a; border-radius:12px; color:white; font-size:14px; height:42px; padding:0 12px; width:100%; box-sizing:border-box; }
+      button { background:white; border:0; border-radius:14px; color:#09090b; cursor:pointer; font-weight:700; height:44px; margin-top:10px; width:100%; }
+      .hint { color:#71717a; font-size:12px; line-height:1.5; margin-top:12px; }
+      .status { color:#86efac; font-size:12px; margin-top:12px; min-height:18px; }
+    </style>
+    <form id="setup">
+      <label><span>Tên app</span><input name="appName" value="VTARCH OS"></label>
+      <label><span>Telegram Bot Token</span><input name="telegramBotToken" placeholder="123456:ABC..."></label>
+      <label><span>Telegram Chat ID</span><input name="telegramChatId" placeholder="Có thể để trống, bot sẽ tự bắt khi /start"></label>
+      <label><span>Telegram User ID được phép dùng</span><input name="telegramAllowedUserId" placeholder="Có thể để trống"></label>
+      <label><span>Web App URL</span><input name="webAppUrl" placeholder="https://script.google.com/macros/s/.../exec"></label>
+      <button type="submit">Lưu cài đặt</button>
+      <p class="hint">Token chỉ lưu trong Apps Script Properties của file này, không đưa vào frontend.</p>
+      <p class="status" id="status"></p>
+    </form>
+    <script>
+      google.script.run.withSuccessHandler(function(state) {
+        document.querySelector('[name=appName]').value = state.appName || 'VTARCH OS';
+        document.querySelector('[name=telegramChatId]').value = state.telegramChatId || '';
+        document.querySelector('[name=telegramAllowedUserId]').value = state.telegramAllowedUserId || '';
+        document.querySelector('[name=webAppUrl]').value = state.webAppUrl || '';
+      }).getSetupState();
+
+      document.getElementById('setup').addEventListener('submit', function(event) {
+        event.preventDefault();
+        var status = document.getElementById('status');
+        status.textContent = 'Đang lưu...';
+        var data = Object.fromEntries(new FormData(event.target).entries());
+        google.script.run
+          .withSuccessHandler(function(result) { status.textContent = result.message; })
+          .withFailureHandler(function(error) { status.textContent = error.message || 'Không lưu được.'; })
+          .saveSetupConfig(data);
+      });
+    </script>
+  `)
+    .setWidth(420)
+    .setHeight(560)
+
+  SpreadsheetApp.getUi().showModalDialog(html, 'VTARCH OS Setup')
+}
+
+function getSetupState() {
+  return {
+    appName: getSetting('APP_NAME') || 'VTARCH OS',
+    telegramAllowedUserId: getSetting('TELEGRAM_ALLOWED_USER_ID'),
+    telegramChatId: getSetting('TELEGRAM_CHAT_ID'),
+    webAppUrl: getSetting('WEB_APP_URL'),
+  }
+}
+
+function saveSetupConfig(form) {
+  setup()
+  const properties = PropertiesService.getScriptProperties()
+  const appName = String(form.appName || 'VTARCH OS').trim()
+  const token = String(form.telegramBotToken || '').trim()
+  const chatId = String(form.telegramChatId || '').trim()
+  const allowedUserId = String(form.telegramAllowedUserId || '').trim()
+  const webAppUrl = String(form.webAppUrl || '').trim()
+
+  setSettingValue('APP_NAME', appName, 'Tên app hiển thị')
+  if (token) {
+    properties.setProperty('TELEGRAM_BOT_TOKEN', token)
+    setSettingValue('TELEGRAM_BOT_TOKEN', 'Stored in Script Properties', 'Token không ghi trực tiếp vào Sheet')
+  }
+  if (chatId) setSettingValue('TELEGRAM_CHAT_ID', chatId, 'Chat nhận báo cáo và nhắc việc')
+  if (allowedUserId) setSettingValue('TELEGRAM_ALLOWED_USER_ID', allowedUserId, 'Telegram user được phép dùng bot')
+  if (webAppUrl) {
+    setSettingValue('WEB_APP_URL', webAppUrl, 'Dán URL này vào màn hình setup của app')
+    if (getSetting('TELEGRAM_BOT_TOKEN')) setTelegramWebhook(webAppUrl)
+  }
+
+  return { ok: true, message: 'Đã lưu. Dán Web App URL vào app để kết nối.' }
+}
+
+function testTelegram() {
+  const chatId = getSetting('TELEGRAM_CHAT_ID')
+  if (!getSetting('TELEGRAM_BOT_TOKEN')) throw new Error('Chưa có Telegram Bot Token.')
+  if (!chatId) throw new Error('Chưa có Telegram Chat ID.')
+  sendTelegramMessage(chatId, 'VTARCH OS đã kết nối Telegram.')
+  SpreadsheetApp.getUi().alert('Đã gửi tin nhắn test.')
+}
+
+function setTelegramWebhook(webAppUrl) {
+  const token = getSetting('TELEGRAM_BOT_TOKEN')
+  if (!token || !webAppUrl) return
+  UrlFetchApp.fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ url: webAppUrl }),
+    muteHttpExceptions: true,
+  })
+}
+
 function setup() {
   const spreadsheet = SpreadsheetApp.getActive()
   Object.keys(SHEETS).forEach((name) => {
     const sheet = spreadsheet.getSheetByName(name) || spreadsheet.insertSheet(name)
     const headers = SHEETS[name]
-    sheet.clear()
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers])
+    const lastColumn = Math.max(sheet.getLastColumn(), headers.length)
+    const existingHeaders = sheet.getLastRow()
+      ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0]
+      : []
+
+    headers.forEach((header, index) => {
+      if (existingHeaders[index] !== header) sheet.getRange(1, index + 1).setValue(header)
+    })
     sheet.setFrozenRows(1)
     sheet.autoResizeColumns(1, headers.length)
   })
 
-  const settings = spreadsheet.getSheetByName('Settings')
-  settings.getRange(2, 1, 5, 3).setValues([
-    ['TELEGRAM_BOT_TOKEN', '', 'Set in Script Properties for better security'],
-    ['TELEGRAM_ALLOWED_USER_ID', '', 'Only this Telegram user can control the bot'],
-    ['TELEGRAM_CHAT_ID', '', 'Default chat for reports and reminders'],
-    ['TIMEZONE', 'Asia/Bangkok', 'Timezone used for reminders'],
-    ['MORNING_REPORT_TIME', '08:00', 'Daily planning message time'],
-  ])
+  ensureSettingValue('APP_NAME', 'VTARCH OS', 'Tên app hiển thị')
+  ensureSettingValue('TELEGRAM_BOT_TOKEN', '', 'Set in Script Properties for better security')
+  ensureSettingValue('TELEGRAM_ALLOWED_USER_ID', '', 'Only this Telegram user can control the bot')
+  ensureSettingValue('TELEGRAM_CHAT_ID', '', 'Default chat for reports and reminders')
+  ensureSettingValue('WEB_APP_URL', '', 'Apps Script Web App URL')
+  ensureSettingValue('TIMEZONE', 'Asia/Bangkok', 'Timezone used for reminders')
+  ensureSettingValue('MORNING_REPORT_TIME', '08:00', 'Daily planning message time')
 
   return json({ ok: true, sheets: Object.keys(SHEETS) })
 }
@@ -286,7 +399,7 @@ function getRows(sheetName) {
 function appendObject(sheetName, object) {
   const sheet = getSheet(sheetName)
   const headers = SHEETS[sheetName]
-  sheet.appendRow(headers.map((header) => object[header] || ''))
+  sheet.appendRow(headers.map((header) => object[header] ?? ''))
 }
 
 function getSheet(name) {
@@ -294,10 +407,18 @@ function getSheet(name) {
 }
 
 function getSetting(key) {
+  const propertyValue = PropertiesService.getScriptProperties().getProperty(key)
+  if (propertyValue) return propertyValue
   const settings = getRows('Settings')
   const item = settings.find((row) => row.Key === key)
   const value = item && item.Value
-  return value || PropertiesService.getScriptProperties().getProperty(key) || ''
+  return value || ''
+}
+
+function ensureSettingValue(key, value, note) {
+  const settings = getRows('Settings')
+  if (settings.some((row) => row.Key === key)) return
+  setSettingValue(key, value, note)
 }
 
 function setSettingValue(key, value, note) {

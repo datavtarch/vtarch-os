@@ -9,8 +9,12 @@ import {
   Flag,
   Folder,
   LayoutDashboard,
+  Link2,
   NotebookText,
   Plus,
+  RotateCcw,
+  Settings,
+  ShieldCheck,
   Tags,
   WalletCards,
   X,
@@ -20,8 +24,13 @@ import {
   createFinance,
   createNote,
   createTask,
+  clearRuntimeConfig,
   getDashboardData,
+  getRuntimeConfig,
+  saveRuntimeConfig,
+  testAppsScriptConnection,
   updateTaskStatus,
+  type RuntimeConfig,
 } from '@/lib/api'
 import { mockDashboardData } from '@/lib/mock-data'
 import type { DashboardData, Task } from '@/types'
@@ -140,6 +149,7 @@ function withFreshMetrics(data: DashboardData): DashboardData {
 }
 
 function App() {
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(() => getRuntimeConfig())
   const [dashboard, setDashboard] = useState<DashboardData>(withFreshMetrics(mockDashboardData))
   const [source, setSource] = useState('dữ liệu mẫu')
   const [syncState, setSyncState] = useState<SyncState>('loading')
@@ -147,17 +157,22 @@ function App() {
   const [activeView, setActiveView] = useState<ViewId>('today')
   const [selectedTaskId, setSelectedTaskId] = useState<string>(mockDashboardData.tasks[0]?.ID || '')
   const [isCaptureOpen, setIsCaptureOpen] = useState(false)
+  const [isSetupOpen, setIsSetupOpen] = useState(() => !getRuntimeConfig().appsScriptUrl)
   const [busyTaskId, setBusyTaskId] = useState('')
   const [isUsingMock, setIsUsingMock] = useState(true)
 
-  const hasRemote = Boolean(import.meta.env.VITE_APPS_SCRIPT_URL)
+  const hasRemote = Boolean(runtimeConfig.appsScriptUrl)
+
+  useEffect(() => {
+    document.title = runtimeConfig.appName || 'VTARCH OS'
+  }, [runtimeConfig.appName])
 
   useEffect(() => {
     setSyncState('loading')
     setSyncMessage('Đang tải dữ liệu')
     getDashboardData()
       .then((data) => {
-        const hasRows = data.tasks.length || data.notes.length || data.finance.length
+        const hasRows = Boolean(hasRemote && (data.tasks.length || data.notes.length || data.finance.length))
         const nextDashboard = withFreshMetrics(hasRows ? data : mockDashboardData)
         setDashboard(nextDashboard)
         setSelectedTaskId(nextDashboard.tasks[0]?.ID || '')
@@ -174,7 +189,7 @@ function App() {
         setSyncState('error')
         setSyncMessage(error instanceof Error ? error.message : 'Không tải được dữ liệu')
       })
-  }, [hasRemote])
+  }, [hasRemote, runtimeConfig.appsScriptUrl])
 
   const openTasks = useMemo(() => dashboard.tasks.filter(isOpenTask), [dashboard.tasks])
   const overdueTasks = useMemo(() => openTasks.filter(isOverdue), [openTasks])
@@ -198,6 +213,37 @@ function App() {
   const activeLabel = views.find((view) => view.id === activeView)?.label || 'Hôm nay'
 
   const replaceMockData = isUsingMock && hasRemote
+
+  const handleSaveSetup = async (config: RuntimeConfig) => {
+    setSyncState('loading')
+    setSyncMessage('Đang kiểm tra kết nối')
+    const data = await testAppsScriptConnection(config.appsScriptUrl)
+    saveRuntimeConfig(config)
+    const nextConfig = getRuntimeConfig()
+    const hasRows = data.tasks.length || data.notes.length || data.finance.length
+    const nextDashboard = withFreshMetrics(hasRows ? data : mockDashboardData)
+
+    setRuntimeConfig(nextConfig)
+    setDashboard(nextDashboard)
+    setSelectedTaskId(nextDashboard.tasks[0]?.ID || '')
+    setIsUsingMock(!hasRows)
+    setSource(hasRows ? 'Google Sheets' : 'Google Sheets · dữ liệu mẫu')
+    setSyncState('ready')
+    setSyncMessage(hasRows ? 'Đã kết nối' : 'Đã kết nối, đang dùng dữ liệu mẫu')
+    setIsSetupOpen(false)
+  }
+
+  const handleResetSetup = () => {
+    clearRuntimeConfig()
+    const nextConfig = getRuntimeConfig()
+    setRuntimeConfig(nextConfig)
+    setDashboard(withFreshMetrics(mockDashboardData))
+    setSelectedTaskId(mockDashboardData.tasks[0]?.ID || '')
+    setIsUsingMock(true)
+    setSource(nextConfig.appsScriptUrl ? 'Google Sheets' : 'dữ liệu mẫu')
+    setSyncState('ready')
+    setSyncMessage(nextConfig.appsScriptUrl ? 'Đã quay về cấu hình mặc định' : 'Đang dùng dữ liệu mẫu')
+  }
 
   const handleCapture = async (draft: CaptureDraft) => {
     setSyncState('saving')
@@ -327,13 +373,19 @@ function App() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-[760px] flex-col">
         <Topbar
           activeLabel={activeLabel}
+          appName={runtimeConfig.appName}
           onCapture={() => setIsCaptureOpen(true)}
+          onSetup={() => setIsSetupOpen(true)}
           source={source}
           syncMessage={syncMessage}
           syncState={syncState}
         />
 
         <section className="min-h-0 flex-1 px-3 pb-28 pt-3 md:px-4 md:pb-32">
+          {!hasRemote && (
+            <SetupBanner onSetup={() => setIsSetupOpen(true)} />
+          )}
+
           {activeView === 'today' && (
             <TodayView
               balance={balance}
@@ -393,6 +445,13 @@ function App() {
         onClose={() => setIsCaptureOpen(false)}
         onCreate={handleCapture}
       />
+      <SetupModal
+        config={runtimeConfig}
+        isOpen={isSetupOpen}
+        onClose={() => setIsSetupOpen(false)}
+        onReset={handleResetSetup}
+        onSave={handleSaveSetup}
+      />
       <MobileNav activeView={activeView} setActiveView={setActiveView} />
     </main>
   )
@@ -400,13 +459,17 @@ function App() {
 
 function Topbar({
   activeLabel,
+  appName,
   onCapture,
+  onSetup,
   source,
   syncMessage,
   syncState,
 }: {
   activeLabel: string
+  appName: string
   onCapture: () => void
+  onSetup: () => void
   source: string
   syncMessage: string
   syncState: SyncState
@@ -422,23 +485,199 @@ function Topbar({
     <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050609]/78 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl md:px-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">VTARCH OS</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{appName}</p>
           <h1 className="truncate text-2xl font-semibold text-white">{activeLabel}</h1>
           <div className="mt-1 flex min-w-0 items-center gap-2">
             <span className={`size-2 shrink-0 rounded-full ${syncDot}`} />
             <p className="truncate text-xs text-zinc-500">{source} · {syncMessage}</p>
           </div>
         </div>
-        <button
-          className="hidden size-10 shrink-0 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6] md:grid"
-          onClick={onCapture}
-          aria-label="Ghi nhanh"
-          type="button"
-        >
-          <Plus size={18} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            className="grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
+            onClick={onSetup}
+            aria-label="Cài đặt kết nối"
+            type="button"
+          >
+            <Settings size={17} />
+          </button>
+          <button
+            className="hidden size-10 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6] md:grid"
+            onClick={onCapture}
+            aria-label="Ghi nhanh"
+            type="button"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
       </div>
     </header>
+  )
+}
+
+function SetupBanner({ onSetup }: { onSetup: () => void }) {
+  return (
+    <section className="mb-4 flex items-center justify-between gap-3 rounded-3xl border border-amber-300/15 bg-amber-300/[0.07] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="grid size-10 shrink-0 place-items-center rounded-2xl border border-amber-200/20 bg-black/20 text-amber-200">
+          <Link2 size={17} />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-white">Chưa kết nối Google Sheet</p>
+          <p className="truncate text-xs text-zinc-500">App đang chạy bằng dữ liệu mẫu.</p>
+        </div>
+      </div>
+      <button
+        className="min-h-10 shrink-0 rounded-2xl bg-white px-4 text-sm font-semibold text-zinc-950"
+        onClick={onSetup}
+        type="button"
+      >
+        Kết nối
+      </button>
+    </section>
+  )
+}
+
+function SetupModal({
+  config,
+  isOpen,
+  onClose,
+  onReset,
+  onSave,
+}: {
+  config: RuntimeConfig
+  isOpen: boolean
+  onClose: () => void
+  onReset: () => void
+  onSave: (config: RuntimeConfig) => Promise<void>
+}) {
+  const [draft, setDraft] = useState<RuntimeConfig>(config)
+  const [error, setError] = useState('')
+  const [isChecking, setIsChecking] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    setDraft(config)
+    setError('')
+    setIsChecking(false)
+  }, [config, isOpen])
+
+  if (!isOpen) return null
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (isChecking) return
+    setError('')
+    setIsChecking(true)
+    try {
+      await onSave(draft)
+    } catch (setupError) {
+      setError(setupError instanceof Error ? setupError.message : 'Không kiểm tra được kết nối')
+    } finally {
+      setIsChecking(false)
+    }
+  }
+
+  const handleReset = () => {
+    onReset()
+    setDraft(getRuntimeConfig())
+    setError('')
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-black/65 p-2 backdrop-blur-md md:items-center md:justify-center">
+      <form
+        className="w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b0d12]/94 shadow-[0_30px_120px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl"
+        onSubmit={handleSubmit}
+      >
+        <div className="border-b border-white/10 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">Template setup</p>
+              <h3 className="mt-1 text-xl font-semibold text-white">Kết nối lần đầu</h3>
+            </div>
+            <button
+              className="grid size-9 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
+              onClick={onClose}
+              type="button"
+            >
+              <X size={17} />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-3 p-4">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-3">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+              <ShieldCheck size={16} />
+              Thông tin cần nhập
+            </div>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-zinc-500">Tên app</span>
+              <input
+                className="field-input"
+                onChange={(event) => setDraft((current) => ({ ...current, appName: event.target.value }))}
+                placeholder="VTARCH OS"
+                value={draft.appName}
+              />
+            </label>
+            <label className="mt-3 block">
+              <span className="mb-1.5 block text-xs font-medium text-zinc-500">Apps Script Web App URL</span>
+              <input
+                className="field-input"
+                inputMode="url"
+                onChange={(event) => setDraft((current) => ({ ...current, appsScriptUrl: event.target.value }))}
+                placeholder="https://script.google.com/macros/s/.../exec"
+                value={draft.appsScriptUrl}
+              />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ['1', 'Copy Sheet'],
+              ['2', 'Deploy Script'],
+              ['3', 'Dán URL'],
+            ].map(([step, label]) => (
+              <div className="min-h-16 rounded-2xl border border-white/10 bg-black/20 p-2" key={step}>
+                <p className="text-xs text-zinc-600">Bước {step}</p>
+                <p className="mt-1 truncate text-xs font-semibold text-zinc-300">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="min-h-10">
+            {error ? (
+              <p className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
+                {error}
+              </p>
+            ) : (
+              <p className="px-1 text-xs leading-5 text-zinc-500">
+                Token Telegram không lưu trong app này. Token nằm trong Apps Script/Google Sheet của từng người.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[auto_1fr] gap-2 border-t border-white/10 p-4">
+          <button
+            className="grid size-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
+            onClick={handleReset}
+            type="button"
+            aria-label="Xóa cấu hình"
+          >
+            <RotateCcw size={17} />
+          </button>
+          <button
+            className="min-h-11 rounded-2xl bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={isChecking || !draft.appsScriptUrl.trim()}
+            type="submit"
+          >
+            {isChecking ? 'Đang kiểm tra...' : 'Kiểm tra và lưu'}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }
 

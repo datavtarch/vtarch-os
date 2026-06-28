@@ -2,11 +2,23 @@
 
 Personal operating system for tasks, reminders, notes, finance, Telegram input, Google Sheets storage, and a React dashboard.
 
+## Template Setup
+
+VTARCH OS now supports runtime setup. A copied app does not need code edits or rebuilds.
+
+1. Copy the Google Sheet template.
+2. Open the Sheet and run `VTARCH OS -> Cài đặt nhanh`.
+3. Paste Telegram token/chat info in the Sheet setup dialog.
+4. Deploy Apps Script as a Web App.
+5. Open the app, press the settings button, paste the Web App URL, then click `Kiểm tra và lưu`.
+
+See [docs/TEMPLATE_SETUP.md](docs/TEMPLATE_SETUP.md) for the full handoff flow.
+
 ## Live Google Assets
 
 - Google Sheet: https://docs.google.com/spreadsheets/d/1rkx-MQGgihutVDQjIfhDuPsuqBrFJc2IyLQZI6w1pps/edit
 - Apps Script project: https://script.google.com/home/projects/1cVQkXjH_GrwvjmvLNoHQGvmkqEI5jvBLvkhZHIWxEV5g_CkY5DN2BQSj/edit
-- Web App API: set in `.env` as `VITE_APPS_SCRIPT_URL`
+- Web App API: paste it in the in-app setup wizard. `.env` is optional for local development.
 
 ## Local Development
 

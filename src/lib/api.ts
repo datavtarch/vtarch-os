@@ -14,7 +14,16 @@ type ApiResponse<T> = {
   error?: string
 }
 
-const appsScriptUrl = import.meta.env.VITE_APPS_SCRIPT_URL as string | undefined
+export type RuntimeConfig = {
+  appName: string
+  appsScriptUrl: string
+}
+
+const CONFIG_STORAGE_KEY = 'vtarch-os-config'
+const envAppsScriptUrl = import.meta.env.DEV
+  ? (import.meta.env.VITE_APPS_SCRIPT_URL as string | undefined)?.trim() || ''
+  : ''
+const envAppName = (import.meta.env.VITE_APP_NAME as string | undefined)?.trim() || 'VTARCH OS'
 
 type TaskInput = {
   DueAt?: string
@@ -43,15 +52,60 @@ type FinanceInput = {
   Type: DashboardData['finance'][number]['Type']
 }
 
-function getAppsScriptUrl(action?: string) {
+function normalizeAppsScriptUrl(value: string) {
+  return value.trim().replace(/\/+$/, '')
+}
+
+function readStoredConfig(): Partial<RuntimeConfig> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(CONFIG_STORAGE_KEY)
+    if (!raw) return {}
+    return JSON.parse(raw) as Partial<RuntimeConfig>
+  } catch {
+    return {}
+  }
+}
+
+export function getRuntimeConfig(): RuntimeConfig {
+  const stored = readStoredConfig()
+  return {
+    appName: stored.appName?.trim() || envAppName,
+    appsScriptUrl: normalizeAppsScriptUrl(stored.appsScriptUrl || envAppsScriptUrl),
+  }
+}
+
+export function saveRuntimeConfig(config: RuntimeConfig) {
+  if (typeof window === 'undefined') return
+  const nextConfig: RuntimeConfig = {
+    appName: config.appName.trim() || 'VTARCH OS',
+    appsScriptUrl: normalizeAppsScriptUrl(config.appsScriptUrl),
+  }
+  window.localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(nextConfig))
+}
+
+export function clearRuntimeConfig() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(CONFIG_STORAGE_KEY)
+}
+
+function withAction(url: string, action?: string) {
+  if (!action) return url
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}action=${encodeURIComponent(action)}`
+}
+
+function getAppsScriptUrl(action?: string, urlOverride?: string) {
+  const appsScriptUrl = normalizeAppsScriptUrl(urlOverride || getRuntimeConfig().appsScriptUrl)
   if (!appsScriptUrl) return ''
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && envAppsScriptUrl && appsScriptUrl === normalizeAppsScriptUrl(envAppsScriptUrl)) {
     return action ? `/api/apps-script?action=${encodeURIComponent(action)}` : '/api/apps-script'
   }
-  return action ? `${appsScriptUrl}?action=${encodeURIComponent(action)}` : appsScriptUrl
+  return withAction(appsScriptUrl, action)
 }
 
 async function postAppsScript<T>(action: string, payload: Record<string, unknown>) {
+  const appsScriptUrl = getRuntimeConfig().appsScriptUrl
   if (!appsScriptUrl) {
     throw new Error('Chưa cấu hình Apps Script URL')
   }
@@ -70,7 +124,24 @@ async function postAppsScript<T>(action: string, payload: Record<string, unknown
   return json.data
 }
 
+export async function testAppsScriptConnection(appsScriptUrl: string): Promise<DashboardData> {
+  const url = normalizeAppsScriptUrl(appsScriptUrl)
+  if (!url) throw new Error('Hãy dán Web App URL của Apps Script')
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/i.test(url)) {
+    throw new Error('URL phải có dạng https://script.google.com/macros/s/.../exec')
+  }
+
+  const response = await fetch(getAppsScriptUrl('dashboard', url), { cache: 'no-store' })
+  const json = (await response.json()) as ApiResponse<unknown>
+  if (!json.ok || !json.data) {
+    throw new Error(json.error || 'Apps Script chưa phản hồi đúng dữ liệu')
+  }
+
+  return dashboardSchema.parse(json.data)
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
+  const appsScriptUrl = getRuntimeConfig().appsScriptUrl
   if (!appsScriptUrl) return mockDashboardData
 
   const response = await fetch(getAppsScriptUrl('dashboard'), { cache: 'no-store' })
@@ -83,6 +154,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 }
 
 export async function createTask(data: TaskInput): Promise<Task> {
+  const appsScriptUrl = getRuntimeConfig().appsScriptUrl
   if (!appsScriptUrl) {
     return taskSchema.parse({
       ID: `local-${Date.now()}`,
@@ -105,6 +177,7 @@ export async function createTask(data: TaskInput): Promise<Task> {
 }
 
 export async function createNote(data: NoteInput): Promise<DashboardData['notes'][number]> {
+  const appsScriptUrl = getRuntimeConfig().appsScriptUrl
   if (!appsScriptUrl) {
     return noteSchema.parse({
       ID: `local-note-${Date.now()}`,
@@ -124,6 +197,7 @@ export async function createNote(data: NoteInput): Promise<DashboardData['notes'
 }
 
 export async function createFinance(data: FinanceInput): Promise<DashboardData['finance'][number]> {
+  const appsScriptUrl = getRuntimeConfig().appsScriptUrl
   if (!appsScriptUrl) {
     return financeSchema.parse({
       ID: `local-finance-${Date.now()}`,
@@ -144,6 +218,7 @@ export async function createFinance(data: FinanceInput): Promise<DashboardData['
 }
 
 export async function updateTaskStatus(id: string, status: Task['Status']): Promise<Task | null> {
+  const appsScriptUrl = getRuntimeConfig().appsScriptUrl
   if (!appsScriptUrl) {
     return null
   }
