@@ -1,0 +1,19 @@
+{
+  "name": "VTARCH OS",
+  "short_name": "VTARCH OS",
+  "description": "Personal OS for tasks, notes, finance, and Telegram capture.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050609",
+  "theme_color": "#050609",
+  "icons": [
+    {
+      "src": "app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

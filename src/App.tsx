@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   NotebookText,
   Plus,
-  Send,
   WalletCards,
   X,
   type LucideIcon,
@@ -309,80 +308,78 @@ function App() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050609] pb-20 text-zinc-100 lg:pb-0">
+    <main className="relative min-h-screen overflow-hidden bg-[#050609] text-zinc-100">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 opacity-90"
+        className="pointer-events-none fixed inset-0 opacity-80"
         style={{
           backgroundImage:
-            'linear-gradient(120deg, rgba(255,255,255,0.11), transparent 19%, rgba(125,211,252,0.08) 42%, transparent 66%), linear-gradient(rgba(255,255,255,0.032) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px)',
-          backgroundSize: '100% 100%, 48px 48px, 48px 48px',
+            'radial-gradient(circle at 50% -10%, rgba(255,255,255,0.16), transparent 32%), linear-gradient(120deg, rgba(125,211,252,0.08), transparent 38%), linear-gradient(rgba(255,255,255,0.026) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px)',
+          backgroundSize: '100% 100%, 100% 100%, 48px 48px, 48px 48px',
         }}
       />
-      <div className="relative mx-auto grid min-h-screen max-w-[1280px] grid-cols-1 lg:grid-cols-[224px_1fr]">
-        <Sidebar
-          activeView={activeView}
-          setActiveView={setActiveView}
+      <div className="relative mx-auto flex min-h-screen w-full max-w-[760px] flex-col">
+        <Topbar
+          activeLabel={activeLabel}
+          onCapture={() => setIsCaptureOpen(true)}
           source={source}
           syncMessage={syncMessage}
           syncState={syncState}
         />
 
-        <section className="min-w-0 border-white/10 lg:border-l">
-          <Topbar
-            activeLabel={activeLabel}
-            activeView={activeView}
-            onCapture={() => setIsCaptureOpen(true)}
-            setActiveView={setActiveView}
-          />
-
-          <div className="p-3 md:p-5">
-            {activeView === 'today' && (
-              <TodayView
-                balance={balance}
-                busyTaskId={busyTaskId}
-                expense={expense}
-                focusTask={focusTask}
-                onCapture={() => setIsCaptureOpen(true)}
-                onStatusChange={handleTaskStatusChange}
-                openTasks={openTasks}
-                overdueCount={overdueTasks.length}
-                setActiveView={setActiveView}
-                setSelectedTaskId={setSelectedTaskId}
-                tasks={upcomingTasks}
-              />
-            )}
-            {activeView === 'tasks' && (
-              <TasksView
-                busyTaskId={busyTaskId}
-                onCapture={() => setIsCaptureOpen(true)}
-                onStatusChange={handleTaskStatusChange}
-                selectedTask={selectedTask}
-                setSelectedTaskId={setSelectedTaskId}
-                tasks={dashboard.tasks}
-              />
-            )}
-            {activeView === 'capture' && (
-              <CaptureView
-                error={syncState === 'error' ? syncMessage : ''}
-                isSaving={syncState === 'saving'}
-                notes={dashboard.notes}
-                onCreate={handleCapture}
-              />
-            )}
-            {activeView === 'finance' && (
-              <FinanceView
-                balance={balance}
-                expense={expense}
-                finance={dashboard.finance}
-                income={income}
-                onCapture={() => setActiveView('capture')}
-              />
-            )}
-          </div>
+        <section className="min-h-0 flex-1 px-3 pb-28 pt-3 md:px-4 md:pb-32">
+          {activeView === 'today' && (
+            <TodayView
+              balance={balance}
+              busyTaskId={busyTaskId}
+              expense={expense}
+              focusTask={focusTask}
+              onCapture={() => setIsCaptureOpen(true)}
+              onStatusChange={handleTaskStatusChange}
+              openTasks={openTasks}
+              overdueCount={overdueTasks.length}
+              setActiveView={setActiveView}
+              setSelectedTaskId={setSelectedTaskId}
+              tasks={upcomingTasks}
+            />
+          )}
+          {activeView === 'tasks' && (
+            <TasksView
+              busyTaskId={busyTaskId}
+              onCapture={() => setIsCaptureOpen(true)}
+              onStatusChange={handleTaskStatusChange}
+              selectedTask={selectedTask}
+              setSelectedTaskId={setSelectedTaskId}
+              tasks={dashboard.tasks}
+            />
+          )}
+          {activeView === 'capture' && (
+            <CaptureView
+              error={syncState === 'error' ? syncMessage : ''}
+              isSaving={syncState === 'saving'}
+              notes={dashboard.notes}
+              onCreate={handleCapture}
+            />
+          )}
+          {activeView === 'finance' && (
+            <FinanceView
+              balance={balance}
+              expense={expense}
+              finance={dashboard.finance}
+              income={income}
+              onCapture={() => setActiveView('capture')}
+            />
+          )}
         </section>
       </div>
 
+      <button
+        className="fixed bottom-[82px] right-4 z-30 grid size-14 place-items-center rounded-lg bg-white text-zinc-950 shadow-[0_18px_48px_rgba(255,255,255,0.18)] md:left-1/2 md:right-auto md:translate-x-[306px]"
+        onClick={() => setIsCaptureOpen(true)}
+        type="button"
+      >
+        <Plus size={22} />
+      </button>
       <CaptureModal
         error={syncState === 'error' ? syncMessage : ''}
         isOpen={isCaptureOpen}
@@ -395,15 +392,15 @@ function App() {
   )
 }
 
-function Sidebar({
-  activeView,
-  setActiveView,
+function Topbar({
+  activeLabel,
+  onCapture,
   source,
   syncMessage,
   syncState,
 }: {
-  activeView: ViewId
-  setActiveView: (view: ViewId) => void
+  activeLabel: string
+  onCapture: () => void
   source: string
   syncMessage: string
   syncState: SyncState
@@ -416,92 +413,24 @@ function Sidebar({
   }[syncState]
 
   return (
-    <aside className="hidden border-r border-white/10 bg-white/[0.04] px-3 py-4 shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-2xl lg:block">
-      <div className="flex items-center gap-3 px-2">
-        <div className="grid size-9 place-items-center rounded-md bg-zinc-100 text-zinc-950">
-          <Send size={17} />
-        </div>
-        <div>
-          <p className="text-xs text-zinc-500">Personal workspace</p>
-          <h1 className="text-sm font-semibold text-white">VTARCH OS</h1>
-        </div>
-      </div>
-
-      <nav className="mt-5 space-y-1">
-        {views.map(({ id, label, icon: Icon }) => (
-          <button
-            className={`flex min-h-10 w-full items-center gap-3 rounded-md px-2.5 text-left text-sm transition ${
-              activeView === id
-                ? 'bg-white text-zinc-950 shadow-[0_12px_30px_rgba(255,255,255,0.10)]'
-                : 'text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'
-            }`}
-            key={id}
-            onClick={() => setActiveView(id)}
-            type="button"
-          >
-            <Icon size={16} />
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      <div className="mt-6 rounded-md border border-white/10 bg-white/[0.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-[0.16em] text-zinc-500">
-            Sync
-          </span>
-          <span className={`size-2 rounded-full ${syncDot}`} />
-        </div>
-        <p className="mt-3 text-sm text-zinc-300">{source}</p>
-        <p className="mt-1 text-xs leading-5 text-zinc-500">{syncMessage}</p>
-      </div>
-    </aside>
-  )
-}
-
-function Topbar({
-  activeLabel,
-  activeView,
-  onCapture,
-  setActiveView,
-}: {
-  activeLabel: string
-  activeView: ViewId
-  onCapture: () => void
-  setActiveView: (view: ViewId) => void
-}) {
-  return (
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050609]/74 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl md:px-5">
+    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050609]/78 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl md:px-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">VTARCH OS</p>
-          <h2 className="truncate text-lg font-semibold text-white">{activeLabel}</h2>
+          <h1 className="truncate text-2xl font-semibold text-white">{activeLabel}</h1>
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <span className={`size-2 shrink-0 rounded-full ${syncDot}`} />
+            <p className="truncate text-xs text-zinc-500">{source} · {syncMessage}</p>
+          </div>
         </div>
         <button
-          className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 text-sm font-semibold text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6]"
+          className="hidden size-10 shrink-0 place-items-center rounded-lg bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6] md:grid"
           onClick={onCapture}
+          aria-label="Ghi nhanh"
           type="button"
         >
-          <Plus size={15} />
-          Ghi nhanh
+          <Plus size={18} />
         </button>
-      </div>
-
-      <div className="mt-3 hidden gap-1 overflow-x-auto md:flex">
-        {views.map(({ id, label }) => (
-          <button
-            className={`rounded-md px-3 py-1.5 text-sm transition ${
-              activeView === id
-                ? 'bg-white text-zinc-950 shadow-[0_10px_26px_rgba(255,255,255,0.10)]'
-                : 'text-zinc-400 hover:bg-white/[0.07] hover:text-white'
-            }`}
-            key={id}
-            onClick={() => setActiveView(id)}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
       </div>
     </header>
   )
@@ -1294,8 +1223,8 @@ function Panel({
   title: string
 }) {
   return (
-    <section className="overflow-hidden rounded-md border border-white/10 bg-white/[0.055] shadow-[0_24px_80px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
-      <div className="flex min-h-12 items-center justify-between border-b border-white/10 px-4">
+    <section className="rounded-lg border border-white/10 bg-white/[0.052] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+      <div className="mb-3 flex min-h-7 items-center justify-between">
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         {action ? (
           <button
@@ -1307,7 +1236,7 @@ function Panel({
           </button>
         ) : null}
       </div>
-      <div className="p-4">{children}</div>
+      {children}
     </section>
   )
 }
@@ -1329,7 +1258,7 @@ function MobileNav({
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-4 rounded-xl border border-white/10 bg-white/[0.075] p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl lg:hidden">
+    <nav className="fixed inset-x-3 bottom-3 z-30 mx-auto grid max-w-[760px] grid-cols-4 rounded-lg border border-white/10 bg-[#111318]/82 p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl">
       {views.map(({ id, label, icon: Icon }) => (
         <button
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] transition ${
