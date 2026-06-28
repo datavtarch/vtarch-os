@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   Bell,
+  CalendarDays,
   Check,
   CheckCircle2,
   Circle,
   CreditCard,
+  Flag,
+  Folder,
   LayoutDashboard,
   NotebookText,
   Plus,
+  Tags,
   WalletCards,
   X,
   type LucideIcon,
@@ -25,6 +29,7 @@ import type { DashboardData, Task } from '@/types'
 type ViewId = 'today' | 'tasks' | 'capture' | 'finance'
 type SyncState = 'loading' | 'ready' | 'saving' | 'error'
 type CaptureKind = 'task' | 'note' | 'finance'
+type CapturePicker = 'idle' | 'category' | 'date' | 'financeType' | 'note' | 'priority' | 'project'
 type TaskStatusFilter = 'Open' | 'All' | Task['Status']
 
 type CaptureDraft = {
@@ -225,6 +230,7 @@ function App() {
           Content: draft.content.trim(),
           Project: draft.project.trim(),
           Source: 'Web',
+          Tags: draft.category.trim(),
           Type: 'text',
         })
 
@@ -856,6 +862,7 @@ function CaptureForm({
   onCreate: (draft: CaptureDraft) => Promise<boolean>
 }) {
   const [draft, setDraft] = useState<CaptureDraft>(emptyDraft)
+  const [activePicker, setActivePicker] = useState<CapturePicker>('idle')
 
   const isValid =
     draft.kind === 'task'
@@ -874,11 +881,12 @@ function CaptureForm({
         date: new Date().toISOString().slice(0, 10),
         kind: current.kind,
       }))
+      setActivePicker('idle')
     }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form className="flex min-h-[31rem] flex-col" onSubmit={handleSubmit}>
       <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
         {[
           ['task', 'Việc', CheckCircle2],
@@ -894,7 +902,10 @@ function CaptureForm({
                   : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
               }`}
               key={kind as string}
-              onClick={() => setDraft((current) => ({ ...current, kind: kind as CaptureKind }))}
+              onClick={() => {
+                setDraft((current) => ({ ...current, kind: kind as CaptureKind }))
+                setActivePicker('idle')
+              }}
               type="button"
             >
               <span className="inline-flex items-center gap-2">
@@ -906,20 +917,22 @@ function CaptureForm({
         })}
       </div>
 
-      <div className="capture-fields app-scroll overflow-y-auto">
-        {draft.kind === 'task' ? (
-          <TaskCaptureFields draft={draft} setDraft={setDraft} />
-        ) : null}
-        {draft.kind === 'note' ? (
-          <NoteCaptureFields draft={draft} setDraft={setDraft} />
-        ) : null}
-        {draft.kind === 'finance' ? (
-          <FinanceCaptureFields draft={draft} setDraft={setDraft} />
-        ) : null}
+      <div className="capture-fields">
+        <CaptureMainInput draft={draft} setDraft={setDraft} />
+        <CaptureToolbar
+          activePicker={activePicker}
+          draft={draft}
+          setActivePicker={setActivePicker}
+        />
+        <CapturePickerPanel
+          activePicker={activePicker}
+          draft={draft}
+          setDraft={setDraft}
+        />
       </div>
 
       <button
-        className="mt-4 min-h-11 w-full rounded-2xl bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-auto min-h-11 w-full rounded-2xl bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
         disabled={!isValid || isSaving}
         type="submit"
       >
@@ -936,190 +949,221 @@ function CaptureForm({
   )
 }
 
-function TaskCaptureFields({
+function CaptureMainInput({
   draft,
   setDraft,
 }: {
   draft: CaptureDraft
   setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
 }) {
-  return (
-    <div className="mt-4 space-y-3">
-      <FieldLabel label="Việc cần làm">
-        <input
-          autoFocus
-          className="field-input"
-          onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-          placeholder="Gọi khách xác nhận bản vẽ"
-          value={draft.title}
-        />
-      </FieldLabel>
-      <div className="grid grid-cols-2 gap-3">
-        <FieldLabel label="Dự án">
+  if (draft.kind === 'finance') {
+    return (
+      <div className="mt-4 h-32 rounded-3xl border border-white/10 bg-black/20 p-3">
+        <div className="grid h-full grid-rows-[1fr_1fr] gap-2">
           <input
-            className="field-input"
-            onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
-            placeholder="Personal OS"
-            value={draft.project}
+            autoFocus
+            className="w-full bg-transparent text-3xl font-semibold text-white outline-none placeholder:text-zinc-700"
+            inputMode="numeric"
+            onChange={(event) => setDraft((current) => ({ ...current, amount: event.target.value }))}
+            placeholder="0"
+            type="number"
+            value={draft.amount}
           />
-        </FieldLabel>
-        <FieldLabel label="Ưu tiên">
-          <select
-            className="field-input"
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, priority: event.target.value as Task['Priority'] }))
-            }
-            value={draft.priority}
-          >
-            <option value="P1">P1</option>
-            <option value="P2">P2</option>
-            <option value="P3">P3</option>
-          </select>
-        </FieldLabel>
-      </div>
-      <FieldLabel label="Hạn">
-        <input
-          className="field-input"
-          onChange={(event) => setDraft((current) => ({ ...current, dueAt: event.target.value }))}
-          type="datetime-local"
-          value={draft.dueAt}
-        />
-      </FieldLabel>
-      <FieldLabel label="Ghi chú">
-        <textarea
-          className="field-input stable-textarea h-24 resize-none py-2"
-          onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
-          placeholder="Thông tin thêm nếu cần"
-          value={draft.note}
-        />
-      </FieldLabel>
-    </div>
-  )
-}
-
-function NoteCaptureFields({
-  draft,
-  setDraft,
-}: {
-  draft: CaptureDraft
-  setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
-}) {
-  return (
-    <div className="mt-4 space-y-3">
-      <FieldLabel label="Nội dung">
-        <textarea
-          autoFocus
-          className="field-input stable-textarea h-36 resize-none py-2"
-          onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
-          placeholder="Ý tưởng, link, ghi chú nhanh"
-          value={draft.content}
-        />
-      </FieldLabel>
-      <FieldLabel label="Dự án">
-        <input
-          className="field-input"
-          onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
-          placeholder="Quick capture"
-          value={draft.project}
-        />
-      </FieldLabel>
-    </div>
-  )
-}
-
-function FinanceCaptureFields({
-  draft,
-  setDraft,
-}: {
-  draft: CaptureDraft
-  setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
-}) {
-  return (
-    <div className="mt-4 space-y-3">
-      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
-        {[
-          ['expense', 'Chi'],
-          ['income', 'Thu'],
-        ].map(([type, label]) => (
-          <button
-            className={`min-h-9 rounded-xl text-sm font-medium transition ${
-              draft.financeType === type
-                ? 'bg-white text-zinc-950'
-                : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
-            }`}
-            key={type}
-            onClick={() =>
-              setDraft((current) => ({ ...current, financeType: type as CaptureDraft['financeType'] }))
-            }
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <FieldLabel label="Số tiền">
-        <input
-          autoFocus
-          className="field-input"
-          inputMode="numeric"
-          onChange={(event) => setDraft((current) => ({ ...current, amount: event.target.value }))}
-          placeholder="250000"
-          type="number"
-          value={draft.amount}
-        />
-      </FieldLabel>
-      <div className="grid grid-cols-2 gap-3">
-        <FieldLabel label="Mô tả">
           <input
-            className="field-input"
+            className="w-full bg-transparent text-sm text-zinc-200 outline-none placeholder:text-zinc-600"
             onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-            placeholder="Ăn trưa"
+            placeholder="Mô tả giao dịch"
             value={draft.title}
           />
-        </FieldLabel>
-        <FieldLabel label="Nhóm">
-          <input
-            className="field-input"
-            onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
-            placeholder="ăn uống"
-            value={draft.category}
-          />
-        </FieldLabel>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <FieldLabel label="Dự án">
-          <input
-            className="field-input"
-            onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
-            placeholder="Khách A"
-            value={draft.project}
-          />
-        </FieldLabel>
-        <FieldLabel label="Ngày">
-          <input
-            className="field-input"
-            onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
-            type="date"
-            value={draft.date}
-          />
-        </FieldLabel>
-      </div>
+    )
+  }
+
+  const value = draft.kind === 'task' ? draft.title : draft.content
+  const placeholder = draft.kind === 'task' ? 'Việc cần làm...' : 'Ghi chú nhanh...'
+
+  return (
+    <div className="mt-4 h-32 rounded-3xl border border-white/10 bg-black/20 p-3">
+      <textarea
+        autoFocus
+        className="stable-textarea h-full w-full resize-none bg-transparent text-xl font-semibold leading-7 text-white outline-none placeholder:text-zinc-700"
+        onChange={(event) =>
+          setDraft((current) => ({
+            ...current,
+            [draft.kind === 'task' ? 'title' : 'content']: event.target.value,
+          }))
+        }
+        placeholder={placeholder}
+        value={value}
+      />
     </div>
   )
 }
 
-function FieldLabel({
-  children,
-  label,
+function CaptureToolbar({
+  activePicker,
+  draft,
+  setActivePicker,
 }: {
-  children: React.ReactNode
-  label: string
+  activePicker: CapturePicker
+  draft: CaptureDraft
+  setActivePicker: (picker: CapturePicker) => void
 }) {
+  const tools: Array<{ icon: LucideIcon; id: CapturePicker; label: string; value: string }> =
+    draft.kind === 'task'
+      ? [
+          { icon: CalendarDays, id: 'date', label: 'Hạn', value: draft.dueAt ? formatDate(draft.dueAt) : 'Chưa đặt' },
+          { icon: Flag, id: 'priority', label: 'Ưu tiên', value: draft.priority },
+          { icon: Folder, id: 'project', label: 'Dự án', value: draft.project || 'Personal OS' },
+          { icon: NotebookText, id: 'note', label: 'Ghi chú', value: draft.note ? 'Có ghi chú' : 'Trống' },
+        ]
+      : draft.kind === 'note'
+        ? [
+            { icon: Folder, id: 'project', label: 'Dự án', value: draft.project || 'Quick capture' },
+            { icon: Tags, id: 'category', label: 'Tag', value: draft.category || 'Chưa đặt' },
+          ]
+        : [
+            { icon: WalletCards, id: 'financeType', label: 'Loại', value: draft.financeType === 'expense' ? 'Chi' : 'Thu' },
+            { icon: CalendarDays, id: 'date', label: 'Ngày', value: draft.date || 'Hôm nay' },
+            { icon: Tags, id: 'category', label: 'Nhóm', value: draft.category || 'general' },
+            { icon: Folder, id: 'project', label: 'Dự án', value: draft.project || 'Không có' },
+          ]
+
   return (
-    <label className="block">
-      <span className="text-xs font-medium uppercase tracking-[0.12em] text-zinc-500">{label}</span>
-      <div className="mt-2">{children}</div>
-    </label>
+    <div className="mt-3 grid grid-cols-4 gap-2">
+      {tools.map(({ icon: Icon, id, label, value }) => (
+        <button
+          className={`min-h-[4.25rem] rounded-2xl border px-2 py-2 text-left transition ${
+            activePicker === id
+              ? 'border-white/25 bg-white text-zinc-950'
+              : 'border-white/10 bg-white/[0.045] text-zinc-300 hover:bg-white/[0.07]'
+          }`}
+          key={id}
+          onClick={() => setActivePicker(activePicker === id ? 'idle' : id)}
+          type="button"
+        >
+          <Icon size={15} />
+          <span className="mt-1 block truncate text-[11px] font-semibold">{label}</span>
+          <span className={`block truncate text-[10px] ${activePicker === id ? 'text-zinc-600' : 'text-zinc-500'}`}>
+            {value}
+          </span>
+        </button>
+      ))}
+      {Array.from({ length: 4 - tools.length }).map((_, index) => (
+        <div
+          className="min-h-[4.25rem] rounded-2xl border border-white/5 bg-white/[0.02]"
+          key={`empty-${index}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+function CapturePickerPanel({
+  activePicker,
+  draft,
+  setDraft,
+}: {
+  activePicker: CapturePicker
+  draft: CaptureDraft
+  setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
+}) {
+  if (activePicker === 'idle') {
+    return (
+      <div className="mt-3 h-28 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
+        <p className="text-xs uppercase tracking-[0.14em] text-zinc-600">Chi tiết</p>
+        <p className="mt-2 text-sm leading-6 text-zinc-400">
+          Chọn một nút phía trên để thêm ngày, dự án, ưu tiên hoặc nhóm. Khung này luôn giữ nguyên chiều cao.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3 h-28 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
+      {activePicker === 'date' ? (
+        <input
+          className="field-input"
+          onChange={(event) =>
+            setDraft((current) => ({
+              ...current,
+              [draft.kind === 'finance' ? 'date' : 'dueAt']: event.target.value,
+            }))
+          }
+          type={draft.kind === 'finance' ? 'date' : 'datetime-local'}
+          value={draft.kind === 'finance' ? draft.date : draft.dueAt}
+        />
+      ) : null}
+      {activePicker === 'priority' ? (
+        <div className="grid grid-cols-3 gap-2">
+          {(['P1', 'P2', 'P3'] as const).map((priority) => (
+            <button
+              className={`min-h-12 rounded-2xl border text-sm font-semibold ${
+                draft.priority === priority
+                  ? 'border-white bg-white text-zinc-950'
+                  : 'border-white/10 bg-black/20 text-zinc-300'
+              }`}
+              key={priority}
+              onClick={() => setDraft((current) => ({ ...current, priority }))}
+              type="button"
+            >
+              {priority}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {activePicker === 'project' ? (
+        <input
+          autoFocus
+          className="field-input"
+          onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
+          placeholder="Tên dự án"
+          value={draft.project}
+        />
+      ) : null}
+      {activePicker === 'category' ? (
+        <input
+          autoFocus
+          className="field-input"
+          onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
+          placeholder={draft.kind === 'finance' ? 'ăn uống' : 'ý tưởng'}
+          value={draft.category}
+        />
+      ) : null}
+      {activePicker === 'note' ? (
+        <textarea
+          autoFocus
+          className="field-input stable-textarea h-full resize-none py-2"
+          onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
+          placeholder="Ghi chú thêm"
+          value={draft.note}
+        />
+      ) : null}
+      {activePicker === 'financeType' ? (
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ['expense', 'Chi'],
+            ['income', 'Thu'],
+          ].map(([type, label]) => (
+            <button
+              className={`min-h-12 rounded-2xl border text-sm font-semibold ${
+                draft.financeType === type
+                  ? 'border-white bg-white text-zinc-950'
+                  : 'border-white/10 bg-black/20 text-zinc-300'
+              }`}
+              key={type}
+              onClick={() =>
+                setDraft((current) => ({ ...current, financeType: type as CaptureDraft['financeType'] }))
+              }
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
