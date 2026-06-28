@@ -84,6 +84,18 @@ const priorityTone: Record<Task['Priority'], string> = {
   P3: 'text-zinc-300 bg-zinc-500/10 ring-zinc-500/20',
 }
 
+const captureActionTone: Record<CaptureKind, string> = {
+  task: 'from-emerald-200/18 to-white/[0.035] text-emerald-100 ring-emerald-200/20',
+  note: 'from-sky-200/16 to-white/[0.035] text-sky-100 ring-sky-200/20',
+  finance: 'from-amber-200/16 to-white/[0.035] text-amber-100 ring-amber-200/20',
+}
+
+const captureIconTone: Record<CaptureKind, string> = {
+  task: 'bg-emerald-100 text-emerald-950 shadow-emerald-200/15',
+  note: 'bg-sky-100 text-sky-950 shadow-sky-200/15',
+  finance: 'bg-amber-100 text-amber-950 shadow-amber-200/15',
+}
+
 const emptyDraft: CaptureDraft = {
   amount: '',
   category: '',
@@ -369,14 +381,23 @@ function App() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#050609] text-zinc-100">
+    <main className="relative isolate min-h-screen overflow-hidden bg-[#050609] text-zinc-100">
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 opacity-80"
+        className="pointer-events-none fixed inset-0 -z-20 opacity-95"
         style={{
           backgroundImage:
-            'radial-gradient(circle at 50% -10%, rgba(255,255,255,0.16), transparent 32%), linear-gradient(120deg, rgba(125,211,252,0.08), transparent 38%), linear-gradient(rgba(255,255,255,0.026) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px)',
-          backgroundSize: '100% 100%, 100% 100%, 48px 48px, 48px 48px',
+            'linear-gradient(140deg, rgba(236,253,245,0.10) 0%, transparent 28%, rgba(125,211,252,0.07) 58%, transparent 86%), linear-gradient(180deg, rgba(255,255,255,0.08), rgba(5,6,9,0.30) 24%, rgba(5,6,9,0.92) 100%)',
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.55]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.030) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.024) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
+          maskImage: 'linear-gradient(to bottom, black 0%, black 58%, transparent 100%)',
         }}
       />
       <div className="relative mx-auto flex min-h-screen w-full max-w-[760px] flex-col">
@@ -392,7 +413,7 @@ function App() {
           syncState={syncState}
         />
 
-        <section className="min-h-0 flex-1 px-3 pb-28 pt-3 md:px-4 md:pb-32">
+        <section className="min-h-0 flex-1 px-3 pb-28 pt-4 md:px-4 md:pb-32">
           {!hasRemote && (
             <SetupBanner onSetup={() => setIsSetupOpen(true)} />
           )}
@@ -444,7 +465,7 @@ function App() {
       </div>
 
       <button
-        className="fixed bottom-[82px] right-4 z-30 hidden size-14 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_18px_48px_rgba(255,255,255,0.18)] md:left-1/2 md:right-auto md:grid md:translate-x-[306px]"
+        className="hidden"
         onClick={() => openCapture('task')}
         type="button"
       >
@@ -499,19 +520,19 @@ function Topbar({
   }[syncState]
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-[#050609]/78 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-2xl md:px-4">
+    <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#070910]/84 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_18px_70px_rgba(0,0,0,0.38),inset_0_-1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl md:px-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">{appName}</p>
-          <h1 className="truncate text-2xl font-semibold text-white">{activeLabel}</h1>
+          <p className="text-xs font-medium text-zinc-500">{appName}</p>
+          <h1 className="truncate text-[1.7rem] font-semibold leading-8 text-white">{activeLabel}</h1>
           <div className="mt-1 flex min-w-0 items-center gap-2">
-            <span className={`size-2 shrink-0 rounded-full ${syncDot}`} />
+            <span className={`size-2.5 shrink-0 rounded-full ${syncDot} shadow-[0_0_18px_currentColor]`} />
             <p className="truncate text-xs text-zinc-500">{source} · {syncMessage}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
-            className="grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+            className="grid size-10 place-items-center rounded-[1.1rem] border border-white/[0.10] bg-white/[0.045] text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
             onClick={onRefresh}
             aria-label="Đồng bộ lại"
             disabled={isBusy}
@@ -520,7 +541,7 @@ function Topbar({
             <RotateCcw className={syncState === 'loading' ? 'animate-spin' : ''} size={17} />
           </button>
           <button
-            className="grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
+            className="grid size-10 place-items-center rounded-[1.1rem] border border-white/[0.10] bg-white/[0.045] text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:bg-white/[0.08] hover:text-white"
             onClick={onSetup}
             aria-label="Cài đặt kết nối"
             type="button"
@@ -528,7 +549,7 @@ function Topbar({
             <Settings size={17} />
           </button>
           <button
-            className="hidden size-10 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6] md:grid"
+            className="hidden size-10 place-items-center rounded-[1.1rem] bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.25),0_18px_45px_rgba(255,255,255,0.13)] transition hover:bg-[#eefbf6] md:grid"
             onClick={onCapture}
             aria-label="Ghi nhanh"
             type="button"
@@ -543,9 +564,9 @@ function Topbar({
 
 function SetupBanner({ onSetup }: { onSetup: () => void }) {
   return (
-    <section className="mb-4 flex items-center justify-between gap-3 rounded-3xl border border-amber-300/15 bg-amber-300/[0.07] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+    <section className="mb-4 flex items-center justify-between gap-3 rounded-[1.7rem] border border-amber-200/[0.16] bg-gradient-to-r from-amber-200/[0.10] to-white/[0.035] p-3 shadow-[0_18px_64px_rgba(0,0,0,0.26),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="grid size-10 shrink-0 place-items-center rounded-2xl border border-amber-200/20 bg-black/20 text-amber-200">
+        <div className="grid size-10 shrink-0 place-items-center rounded-2xl border border-amber-200/20 bg-black/[0.24] text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           <Link2 size={17} />
         </div>
         <div className="min-w-0">
@@ -554,7 +575,7 @@ function SetupBanner({ onSetup }: { onSetup: () => void }) {
         </div>
       </div>
       <button
-        className="min-h-10 shrink-0 rounded-2xl bg-white px-4 text-sm font-semibold text-zinc-950"
+        className="min-h-10 shrink-0 rounded-[1.15rem] bg-white px-4 text-sm font-semibold text-zinc-950 shadow-[0_14px_34px_rgba(255,255,255,0.12)]"
         onClick={onSetup}
         type="button"
       >
@@ -619,7 +640,7 @@ function SetupModal({
         <div className="border-b border-white/10 p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">Template setup</p>
+              <p className="text-xs font-medium text-emerald-300">Template setup</p>
               <h3 className="mt-1 text-xl font-semibold text-white">Kết nối lần đầu</h3>
             </div>
             <button
@@ -808,16 +829,16 @@ function TodayQuickActions({
     <section className="grid grid-cols-3 gap-2">
       {actions.map(({ icon: Icon, kind, label, meta }) => (
         <button
-          className="group min-h-[5.75rem] rounded-[1.4rem] border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_18px_60px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:border-white/20 hover:bg-white/[0.08]"
+          className={`group min-h-[6.05rem] rounded-[1.55rem] border border-white/[0.10] bg-gradient-to-br p-3 text-left shadow-[0_18px_64px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.09)] ring-1 backdrop-blur-2xl transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08] ${captureActionTone[kind]}`}
           key={kind}
           onClick={() => onCapture(kind)}
           type="button"
         >
-          <span className="grid size-8 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_10px_28px_rgba(255,255,255,0.12)]">
+          <span className={`grid size-8 place-items-center rounded-2xl shadow-[0_10px_28px] ${captureIconTone[kind]}`}>
             <Icon size={15} />
           </span>
           <span className="mt-3 block truncate text-sm font-semibold text-white">{label}</span>
-          <span className="mt-1 block truncate text-[11px] text-zinc-500">{meta}</span>
+          <span className="mt-1 block truncate text-[11px] text-zinc-400">{meta}</span>
         </button>
       ))}
     </section>
@@ -836,19 +857,20 @@ function FocusCard({
   task?: Task
 }) {
   return (
-    <section className="relative min-h-[18rem] overflow-hidden rounded-[2rem] border border-white/[0.14] bg-white/[0.07] p-4 shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl md:p-5">
+    <section className="relative min-h-[18rem] overflow-hidden rounded-[2.15rem] border border-white/[0.14] bg-white/[0.072] p-4 shadow-[0_32px_120px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(255,255,255,0.04)] backdrop-blur-2xl md:p-5">
       <div
         aria-hidden="true"
         className="absolute inset-0 opacity-90"
         style={{
           background:
-            'linear-gradient(118deg, rgba(255,255,255,0.16), transparent 30%), linear-gradient(245deg, rgba(110,231,183,0.14), transparent 34%)',
+            'linear-gradient(118deg, rgba(255,255,255,0.18), transparent 30%), linear-gradient(245deg, rgba(110,231,183,0.13), transparent 34%), linear-gradient(180deg, rgba(255,255,255,0.04), transparent 46%)',
         }}
       />
+      <div aria-hidden="true" className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-100/55 to-transparent" />
       <div className="relative flex h-full min-h-[16rem] flex-col justify-between gap-5">
         <div className="min-w-0">
           <div className="flex items-center justify-between gap-3">
-            <span className="rounded-full border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-semibold text-[#dffcf2]">
+            <span className="rounded-full border border-emerald-100/[0.18] bg-emerald-100/[0.08] px-2.5 py-1 text-xs font-semibold text-[#dffcf2] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
               Việc chính
             </span>
             <span className={`rounded-full px-2.5 py-1 text-xs ring-1 ${task ? statusTone[task.Status] : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>
@@ -862,13 +884,13 @@ function FocusCard({
             {task?.Note || 'Ghi một việc quan trọng, xử lý xong rồi mới chuyển sang việc tiếp theo.'}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
+            <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur">
               {task?.Project || 'Personal OS'}
             </span>
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
+            <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur">
               {formatDate(task?.DueAt)}
             </span>
-            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
+            <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur">
               {task?.Priority || 'P2'}
             </span>
           </div>
@@ -876,7 +898,7 @@ function FocusCard({
 
         <div className="grid grid-cols-2 gap-2 md:ml-auto md:w-72">
           <button
-            className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-medium text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+            className="min-h-11 rounded-2xl border border-white/[0.10] bg-white/[0.045] text-sm font-medium text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!task || busyTaskId === task.ID || task.Status === 'Doing'}
             onClick={() => task && onStatusChange(task, 'Doing')}
             type="button"
@@ -884,7 +906,7 @@ function FocusCard({
             Đang làm
           </button>
           <button
-            className="min-h-11 rounded-2xl bg-white text-sm font-semibold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="min-h-11 rounded-2xl bg-[#f7fff9] text-sm font-semibold text-zinc-950 shadow-[0_18px_52px_rgba(236,253,245,0.18)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!task || busyTaskId === task.ID || task.Status === 'Done'}
             onClick={() => task && onStatusChange(task, 'Done')}
             type="button"
@@ -892,7 +914,7 @@ function FocusCard({
             {task && busyTaskId === task.ID ? 'Đang lưu' : 'Xong'}
           </button>
           <button
-            className="col-span-2 min-h-11 rounded-2xl border border-white/10 bg-black/20 text-sm font-medium text-zinc-300 hover:bg-white/[0.06]"
+            className="col-span-2 min-h-11 rounded-2xl border border-white/[0.10] bg-black/[0.24] text-sm font-medium text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-white/[0.06]"
             onClick={onCapture}
             type="button"
           >
@@ -914,10 +936,10 @@ function MetricCard({
   value: number | string
 }) {
   return (
-    <article className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.055] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+    <article className="min-w-0 rounded-[1.35rem] border border-white/[0.10] bg-white/[0.052] p-3 shadow-[0_18px_64px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
       <div className="flex items-center gap-2 text-zinc-500">
         <Icon size={14} />
-        <span className="truncate text-xs uppercase tracking-[0.1em]">{label}</span>
+        <span className="truncate text-xs font-medium">{label}</span>
       </div>
       <p className="mt-2 truncate text-2xl font-semibold text-white">{value}</p>
     </article>
@@ -1021,10 +1043,10 @@ function TaskList({
     <div className="space-y-2">
       {tasks.map((task) => (
         <button
-          className={`flex min-h-[72px] w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition ${
+          className={`flex min-h-[72px] w-full items-start gap-3 rounded-[1.35rem] border px-3 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition ${
             selectedId === task.ID
-              ? 'border-white/25 bg-white/[0.08]'
-              : 'border-white/10 bg-black/[0.18] hover:border-white/20 hover:bg-white/[0.06]'
+              ? 'border-emerald-100/30 bg-emerald-100/[0.075]'
+              : 'border-white/10 bg-black/[0.20] hover:border-white/20 hover:bg-white/[0.06]'
           }`}
           key={task.ID}
           onClick={() => setSelectedTaskId(task.ID)}
@@ -1072,16 +1094,20 @@ function TaskTimeline({
         const isActive = selectedId === task.ID
         return (
           <button
-            className={`grid min-h-[76px] w-full grid-cols-[2.25rem_1fr_auto] items-start gap-3 rounded-[1.35rem] border px-3 py-3 text-left transition ${
+            className={`grid min-h-[76px] w-full grid-cols-[2.25rem_1fr_auto] items-start gap-3 rounded-[1.4rem] border px-3 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition ${
               isActive
-                ? 'border-emerald-200/35 bg-emerald-200/[0.08]'
-                : 'border-white/10 bg-black/[0.18] hover:border-white/20 hover:bg-white/[0.06]'
+                ? 'border-emerald-100/35 bg-emerald-100/[0.08]'
+                : 'border-white/10 bg-black/[0.20] hover:border-white/20 hover:bg-white/[0.06]'
             }`}
             key={task.ID}
             onClick={() => setSelectedTaskId(task.ID)}
             type="button"
           >
-            <span className="relative grid size-9 place-items-center rounded-2xl border border-white/10 bg-white/[0.045] text-xs font-semibold text-zinc-400">
+            <span className={`relative grid size-9 place-items-center rounded-2xl border text-xs font-semibold ${
+              isActive
+                ? 'border-emerald-100/25 bg-emerald-100/[0.12] text-emerald-100'
+                : 'border-white/10 bg-white/[0.045] text-zinc-400'
+            }`}>
               {index + 1}
             </span>
             <span className="min-w-0">
@@ -1148,7 +1174,7 @@ function TaskDetail({
         </dl>
 
         <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-600">Ghi chú</p>
+          <p className="text-xs font-medium text-zinc-600">Ghi chú</p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             {task.Note || 'Chưa có ghi chú.'}
           </p>
@@ -1257,7 +1283,7 @@ function CaptureForm({
 
   return (
     <form className="flex min-h-[31rem] flex-col" onSubmit={handleSubmit}>
-      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
+      <div className="grid grid-cols-3 gap-1 rounded-[1.25rem] border border-white/[0.10] bg-black/[0.24] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         {[
           ['task', 'Việc', CheckCircle2],
           ['note', 'Note', NotebookText],
@@ -1266,9 +1292,9 @@ function CaptureForm({
           const TypedIcon = Icon as LucideIcon
           return (
             <button
-              className={`min-h-10 rounded-xl text-sm font-medium transition ${
+              className={`min-h-10 rounded-[1rem] text-sm font-medium transition ${
                 draft.kind === kind
-                  ? 'bg-white text-zinc-950'
+                  ? 'bg-white text-zinc-950 shadow-[0_10px_28px_rgba(255,255,255,0.12)]'
                   : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
               }`}
               key={kind as string}
@@ -1302,7 +1328,7 @@ function CaptureForm({
       </div>
 
       <button
-        className="mt-auto min-h-11 w-full rounded-2xl bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-auto min-h-11 w-full rounded-[1.15rem] bg-[#f7fff9] text-sm font-bold text-zinc-950 shadow-[0_18px_48px_rgba(236,253,245,0.17)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
         disabled={!isValid || isSaving}
         type="submit"
       >
@@ -1328,7 +1354,7 @@ function CaptureMainInput({
 }) {
   if (draft.kind === 'finance') {
     return (
-      <div className="mt-4 h-32 rounded-3xl border border-white/10 bg-black/20 p-3">
+      <div className="mt-4 h-32 rounded-[1.6rem] border border-white/[0.10] bg-black/[0.24] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
         <div className="grid h-full grid-rows-[1fr_1fr] gap-2">
           <input
             className="w-full bg-transparent text-3xl font-semibold text-white outline-none placeholder:text-zinc-700"
@@ -1353,7 +1379,7 @@ function CaptureMainInput({
   const placeholder = draft.kind === 'task' ? 'Việc cần làm...' : 'Ghi chú nhanh...'
 
   return (
-    <div className="mt-4 h-32 rounded-3xl border border-white/10 bg-black/20 p-3">
+    <div className="mt-4 h-32 rounded-[1.6rem] border border-white/[0.10] bg-black/[0.24] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
       <textarea
         className="stable-textarea h-full w-full resize-none bg-transparent text-xl font-semibold leading-7 text-white outline-none placeholder:text-zinc-700"
         onChange={(event) =>
@@ -1403,9 +1429,9 @@ function CaptureToolbar({
     <div className={`mt-3 grid ${gridClass} gap-2`}>
       {tools.map(({ icon: Icon, id, label, value }) => (
         <button
-          className={`min-h-[4.25rem] rounded-2xl border px-2 py-2 text-left transition ${
+          className={`min-h-[4.25rem] rounded-[1.2rem] border px-2 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition ${
             activePicker === id
-              ? 'border-white/25 bg-white text-zinc-950'
+              ? 'border-white/25 bg-white text-zinc-950 shadow-[0_12px_28px_rgba(255,255,255,0.12)]'
               : 'border-white/10 bg-white/[0.045] text-zinc-300 hover:bg-white/[0.07]'
           }`}
           key={id}
@@ -1441,15 +1467,15 @@ function CapturePickerPanel({
 
   if (activePicker === 'idle') {
     return (
-      <div className="mt-3 h-28 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
-        <p className="text-xs uppercase tracking-[0.14em] text-zinc-600">Chi tiết</p>
+      <div className="mt-3 h-28 rounded-[1.55rem] border border-white/[0.10] bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+        <p className="text-xs font-medium text-zinc-600">Chi tiết</p>
         <p className="mt-2 text-sm leading-6 text-zinc-400">{idleHint}</p>
       </div>
     )
   }
 
   return (
-    <div className="mt-3 h-28 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
+    <div className="mt-3 h-28 rounded-[1.55rem] border border-white/[0.10] bg-white/[0.035] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
       {activePicker === 'date' ? (
         <input
           className="field-input"
@@ -1605,11 +1631,12 @@ function CaptureModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end bg-black/60 p-2 backdrop-blur-md md:items-center md:justify-center">
-      <div className="app-scroll max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-3xl border border-white/10 bg-[#0b0d12]/90 p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:max-w-lg">
+    <div className="fixed inset-0 z-40 flex items-end bg-black/66 p-2 backdrop-blur-lg md:items-center md:justify-center">
+      <div className="app-scroll max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-[2rem] border border-white/[0.12] bg-[#0b0d12]/92 p-4 shadow-[0_32px_110px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.11)] backdrop-blur-2xl md:max-w-lg">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20 md:hidden" />
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">Capture</p>
+            <p className="text-xs font-medium text-emerald-300">Capture</p>
             <h3 className="mt-1 text-xl font-semibold text-white">Ghi nhanh</h3>
           </div>
           <button
@@ -1638,12 +1665,12 @@ function Panel({
   title: string
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.052] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+    <section className="rounded-[1.7rem] border border-white/[0.10] bg-white/[0.050] p-4 shadow-[0_24px_86px_rgba(0,0,0,0.27),inset_0_1px_0_rgba(255,255,255,0.085)] backdrop-blur-2xl">
       <div className="mb-3 flex min-h-7 items-center justify-between">
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         {action ? (
           <button
-            className="text-xs font-medium text-zinc-500 hover:text-zinc-100"
+            className="rounded-full border border-white/[0.08] bg-white/[0.035] px-2.5 py-1 text-xs font-medium text-zinc-400 transition hover:bg-white/[0.07] hover:text-zinc-100"
             onClick={onAction}
             type="button"
           >
@@ -1658,7 +1685,7 @@ function Panel({
 
 function EmptyState({ body, title }: { body: string; title: string }) {
   return (
-    <div className="min-h-[112px] rounded-3xl border border-dashed border-white/15 bg-white/[0.04] p-5 backdrop-blur">
+    <div className="min-h-[112px] rounded-[1.55rem] border border-dashed border-white/15 bg-white/[0.035] p-5 backdrop-blur">
       <p className="font-medium text-white">{title}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-500">{body}</p>
     </div>
@@ -1673,12 +1700,12 @@ function MobileNav({
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-30 mx-auto grid max-w-[760px] grid-cols-4 rounded-3xl border border-white/10 bg-[#111318]/82 p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl">
+    <nav className="fixed inset-x-3 bottom-3 z-30 mx-auto grid max-w-[760px] grid-cols-4 rounded-[1.65rem] border border-white/[0.12] bg-[#0d1016]/82 p-1 shadow-[0_20px_70px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.09)] backdrop-blur-2xl">
       {views.map(({ id, label, icon: Icon }) => (
         <button
-          className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] transition ${
+          className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-[1.25rem] text-[10px] font-medium transition ${
             activeView === id
-              ? 'bg-white text-zinc-950 shadow-[0_10px_24px_rgba(255,255,255,0.12)]'
+              ? 'bg-white/[0.92] text-zinc-950 shadow-[0_12px_30px_rgba(236,253,245,0.16)]'
               : 'text-zinc-500 hover:text-zinc-100'
           }`}
           key={id}
