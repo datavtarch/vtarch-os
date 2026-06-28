@@ -374,7 +374,7 @@ function App() {
       </div>
 
       <button
-        className="fixed bottom-[82px] right-4 z-30 grid size-14 place-items-center rounded-lg bg-white text-zinc-950 shadow-[0_18px_48px_rgba(255,255,255,0.18)] md:left-1/2 md:right-auto md:translate-x-[306px]"
+        className="fixed bottom-[82px] right-4 z-30 grid size-14 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_18px_48px_rgba(255,255,255,0.18)] md:left-1/2 md:right-auto md:translate-x-[306px]"
         onClick={() => setIsCaptureOpen(true)}
         type="button"
       >
@@ -424,7 +424,7 @@ function Topbar({
           </div>
         </div>
         <button
-          className="hidden size-10 shrink-0 place-items-center rounded-lg bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6] md:grid"
+          className="hidden size-10 shrink-0 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.22),0_18px_45px_rgba(255,255,255,0.12)] transition hover:bg-[#eefbf6] md:grid"
           onClick={onCapture}
           aria-label="Ghi nhanh"
           type="button"
@@ -497,7 +497,7 @@ function TodayView({
               </p>
             </div>
             <button
-              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-white/10 bg-white/[0.05] text-sm font-medium text-zinc-200 hover:bg-white/[0.08]"
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-medium text-zinc-200 hover:bg-white/[0.08]"
               onClick={() => setActiveView('finance')}
               type="button"
             >
@@ -523,7 +523,7 @@ function FocusCard({
   task?: Task
 }) {
   return (
-    <section className="relative overflow-hidden rounded-md border border-white/[0.12] bg-white/[0.065] p-4 shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:p-5">
+    <section className="relative overflow-hidden rounded-3xl border border-white/[0.12] bg-white/[0.065] p-4 shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:p-5">
       <div
         aria-hidden="true"
         className="absolute inset-0 opacity-80"
@@ -534,20 +534,20 @@ function FocusCard({
       />
       <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <span className="rounded border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-medium text-[#dffcf2]">
+          <span className="rounded-full border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-medium text-[#dffcf2]">
             Hôm nay
           </span>
           <h3 className="mt-4 max-w-3xl text-2xl font-semibold text-white md:text-3xl">
             {task?.Title || 'Chưa có việc cần tập trung.'}
           </h3>
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               {task?.Project || 'Personal OS'}
             </span>
-            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               {formatDate(task?.DueAt)}
             </span>
-            <span className="rounded-md border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
+            <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               {task?.Priority || 'P2'}
             </span>
           </div>
@@ -555,7 +555,7 @@ function FocusCard({
 
         <div className="grid grid-cols-2 gap-2 md:w-64">
           <button
-            className="min-h-10 rounded-md border border-white/10 bg-white/[0.055] text-sm font-medium text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+            className="min-h-10 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-medium text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!task || busyTaskId === task.ID || task.Status === 'Doing'}
             onClick={() => task && onStatusChange(task, 'Doing')}
             type="button"
@@ -563,7 +563,7 @@ function FocusCard({
             Đang làm
           </button>
           <button
-            className="min-h-10 rounded-md bg-white text-sm font-semibold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="min-h-10 rounded-2xl bg-white text-sm font-semibold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!task || busyTaskId === task.ID || task.Status === 'Done'}
             onClick={() => task && onStatusChange(task, 'Done')}
             type="button"
@@ -571,7 +571,7 @@ function FocusCard({
             {task && busyTaskId === task.ID ? 'Đang lưu' : 'Xong'}
           </button>
           <button
-            className="col-span-2 min-h-10 rounded-md border border-white/10 bg-black/20 text-sm font-medium text-zinc-300 hover:bg-white/[0.06]"
+            className="col-span-2 min-h-10 rounded-2xl border border-white/10 bg-black/20 text-sm font-medium text-zinc-300 hover:bg-white/[0.06]"
             onClick={onCapture}
             type="button"
           >
@@ -593,7 +593,7 @@ function MetricCard({
   value: number | string
 }) {
   return (
-    <article className="min-w-0 rounded-md border border-white/10 bg-white/[0.055] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+    <article className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.055] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
       <div className="flex items-center gap-2 text-zinc-500">
         <Icon size={14} />
         <span className="truncate text-xs uppercase tracking-[0.1em]">{label}</span>
@@ -664,10 +664,10 @@ function TaskFilters({
   ]
 
   return (
-    <div className="flex gap-1 overflow-x-auto rounded-md border border-white/10 bg-black/20 p-1">
+    <div className="app-scroll flex gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-1">
       {filters.map((filter) => (
         <button
-          className={`min-h-8 shrink-0 rounded px-3 text-xs font-medium transition ${
+          className={`min-h-8 shrink-0 rounded-xl px-3 text-xs font-medium transition ${
             active === filter.id
               ? 'bg-white text-zinc-950'
               : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
@@ -700,7 +700,7 @@ function TaskList({
     <div className="space-y-2">
       {tasks.map((task) => (
         <button
-          className={`flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left transition ${
+          className={`flex min-h-[72px] w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition ${
             selectedId === task.ID
               ? 'border-white/25 bg-white/[0.08]'
               : 'border-white/10 bg-black/[0.18] hover:border-white/20 hover:bg-white/[0.06]'
@@ -723,7 +723,7 @@ function TaskList({
               <span>{formatDate(task.DueAt)}</span>
             </span>
           </span>
-          <span className={`rounded px-2 py-1 text-xs ring-1 ${priorityTone[task.Priority]}`}>
+          <span className={`rounded-full px-2 py-1 text-xs ring-1 ${priorityTone[task.Priority]}`}>
             {task.Priority}
           </span>
         </button>
@@ -755,10 +755,10 @@ function TaskDetail({
         <div>
           <h3 className="text-xl font-semibold leading-7 text-white">{task.Title}</h3>
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className={`rounded px-2.5 py-1 text-xs ring-1 ${statusTone[task.Status]}`}>
+            <span className={`rounded-full px-2.5 py-1 text-xs ring-1 ${statusTone[task.Status]}`}>
               {statusLabel[task.Status]}
             </span>
-            <span className={`rounded px-2.5 py-1 text-xs ring-1 ${priorityTone[task.Priority]}`}>
+            <span className={`rounded-full px-2.5 py-1 text-xs ring-1 ${priorityTone[task.Priority]}`}>
               {task.Priority}
             </span>
           </div>
@@ -778,7 +778,7 @@ function TaskDetail({
           ))}
         </dl>
 
-        <div className="rounded-md border border-white/10 bg-black/20 p-3">
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
           <p className="text-xs uppercase tracking-[0.14em] text-zinc-600">Ghi chú</p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
             {task.Note || 'Chưa có ghi chú.'}
@@ -791,7 +791,7 @@ function TaskDetail({
             const isBusy = busyTaskId === task.ID
             return (
               <button
-                className={`min-h-10 rounded-md border text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`min-h-10 rounded-2xl border text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   isActive
                     ? 'border-white bg-white text-zinc-950'
                     : 'border-white/10 bg-white/[0.035] text-zinc-300 hover:border-white/20 hover:bg-white/[0.07]'
@@ -832,7 +832,7 @@ function CaptureView({
         <div className="space-y-2">
           {notes.length ? (
             notes.slice(0, 8).map((note) => (
-              <article className="rounded-md border border-white/10 bg-black/20 p-3" key={note.ID}>
+              <article className="min-h-[92px] rounded-2xl border border-white/10 bg-black/20 p-3" key={note.ID}>
                 <p className="text-sm leading-6 text-zinc-300">{note.Content}</p>
                 <p className="mt-2 text-xs text-zinc-500">{note.Project || 'Quick capture'}</p>
               </article>
@@ -879,7 +879,7 @@ function CaptureForm({
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="grid grid-cols-3 gap-1 rounded-md border border-white/10 bg-black/20 p-1">
+      <div className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
         {[
           ['task', 'Việc', CheckCircle2],
           ['note', 'Note', NotebookText],
@@ -888,7 +888,7 @@ function CaptureForm({
           const TypedIcon = Icon as LucideIcon
           return (
             <button
-              className={`min-h-10 rounded text-sm font-medium transition ${
+              className={`min-h-10 rounded-xl text-sm font-medium transition ${
                 draft.kind === kind
                   ? 'bg-white text-zinc-950'
                   : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
@@ -906,28 +906,32 @@ function CaptureForm({
         })}
       </div>
 
-      {draft.kind === 'task' ? (
-        <TaskCaptureFields draft={draft} setDraft={setDraft} />
-      ) : null}
-      {draft.kind === 'note' ? (
-        <NoteCaptureFields draft={draft} setDraft={setDraft} />
-      ) : null}
-      {draft.kind === 'finance' ? (
-        <FinanceCaptureFields draft={draft} setDraft={setDraft} />
-      ) : null}
+      <div className="capture-fields app-scroll overflow-y-auto">
+        {draft.kind === 'task' ? (
+          <TaskCaptureFields draft={draft} setDraft={setDraft} />
+        ) : null}
+        {draft.kind === 'note' ? (
+          <NoteCaptureFields draft={draft} setDraft={setDraft} />
+        ) : null}
+        {draft.kind === 'finance' ? (
+          <FinanceCaptureFields draft={draft} setDraft={setDraft} />
+        ) : null}
+      </div>
 
       <button
-        className="mt-4 min-h-11 w-full rounded-md bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-4 min-h-11 w-full rounded-2xl bg-white text-sm font-bold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
         disabled={!isValid || isSaving}
         type="submit"
       >
         {isSaving ? 'Đang lưu...' : 'Lưu'}
       </button>
-      {error ? (
-        <p className="mt-3 rounded-md border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
-          {error}
-        </p>
-      ) : null}
+      <div className="capture-error-slot mt-3">
+        {error ? (
+          <p className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
+            {error}
+          </p>
+        ) : null}
+      </div>
     </form>
   )
 }
@@ -983,7 +987,7 @@ function TaskCaptureFields({
       </FieldLabel>
       <FieldLabel label="Ghi chú">
         <textarea
-          className="field-input min-h-20 resize-none py-2"
+          className="field-input stable-textarea h-24 resize-none py-2"
           onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
           placeholder="Thông tin thêm nếu cần"
           value={draft.note}
@@ -1005,7 +1009,7 @@ function NoteCaptureFields({
       <FieldLabel label="Nội dung">
         <textarea
           autoFocus
-          className="field-input min-h-32 resize-none py-2"
+          className="field-input stable-textarea h-36 resize-none py-2"
           onChange={(event) => setDraft((current) => ({ ...current, content: event.target.value }))}
           placeholder="Ý tưởng, link, ghi chú nhanh"
           value={draft.content}
@@ -1032,13 +1036,13 @@ function FinanceCaptureFields({
 }) {
   return (
     <div className="mt-4 space-y-3">
-      <div className="grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-black/20 p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-black/20 p-1">
         {[
           ['expense', 'Chi'],
           ['income', 'Thu'],
         ].map(([type, label]) => (
           <button
-            className={`min-h-9 rounded text-sm font-medium transition ${
+            className={`min-h-9 rounded-xl text-sm font-medium transition ${
               draft.financeType === type
                 ? 'bg-white text-zinc-950'
                 : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
@@ -1141,7 +1145,7 @@ function FinanceView({
             ['Chi', expense, 'text-rose-300'],
             ['Còn lại', balance, balance >= 0 ? 'text-sky-300' : 'text-amber-300'],
           ].map(([label, value, tone]) => (
-            <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-3 py-3" key={label as string}>
+            <div className="flex min-h-[54px] items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-3 py-3" key={label as string}>
               <span className="text-sm text-zinc-500">{label as string}</span>
               <span className={`text-sm font-semibold ${tone as string}`}>
                 {formatMoney(Number(value))} VND
@@ -1155,7 +1159,7 @@ function FinanceView({
         <div className="space-y-2">
           {finance.length ? (
             finance.slice(0, 12).map((item) => (
-              <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 p-3" key={item.ID}>
+              <div className="flex min-h-[64px] items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-3" key={item.ID}>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-white">{item.Description || item.Category}</p>
                   <p className="mt-1 text-xs text-zinc-500">{item.Date} · {item.Type}</p>
@@ -1191,14 +1195,14 @@ function CaptureModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-black/60 p-2 backdrop-blur-md md:items-center md:justify-center">
-      <div className="w-full rounded-xl border border-white/10 bg-[#0b0d12]/85 p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:max-w-lg">
+      <div className="app-scroll max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-3xl border border-white/10 bg-[#0b0d12]/90 p-4 shadow-[0_28px_90px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:max-w-lg">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.16em] text-emerald-300">Capture</p>
             <h3 className="mt-1 text-xl font-semibold text-white">Ghi nhanh</h3>
           </div>
           <button
-            className="grid size-9 place-items-center rounded-md border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
+            className="grid size-9 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
             onClick={onClose}
             type="button"
           >
@@ -1223,7 +1227,7 @@ function Panel({
   title: string
 }) {
   return (
-    <section className="rounded-lg border border-white/10 bg-white/[0.052] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
+    <section className="rounded-3xl border border-white/10 bg-white/[0.052] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl">
       <div className="mb-3 flex min-h-7 items-center justify-between">
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         {action ? (
@@ -1243,7 +1247,7 @@ function Panel({
 
 function EmptyState({ body, title }: { body: string; title: string }) {
   return (
-    <div className="rounded-md border border-dashed border-white/15 bg-white/[0.04] p-5 backdrop-blur">
+    <div className="min-h-[112px] rounded-3xl border border-dashed border-white/15 bg-white/[0.04] p-5 backdrop-blur">
       <p className="font-medium text-white">{title}</p>
       <p className="mt-2 text-sm leading-6 text-zinc-500">{body}</p>
     </div>
@@ -1258,10 +1262,10 @@ function MobileNav({
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-30 mx-auto grid max-w-[760px] grid-cols-4 rounded-lg border border-white/10 bg-[#111318]/82 p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl">
+    <nav className="fixed inset-x-3 bottom-3 z-30 mx-auto grid max-w-[760px] grid-cols-4 rounded-3xl border border-white/10 bg-[#111318]/82 p-1 shadow-2xl shadow-black/60 backdrop-blur-2xl">
       {views.map(({ id, label, icon: Icon }) => (
         <button
-          className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[10px] transition ${
+          className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] transition ${
             activeView === id
               ? 'bg-white text-zinc-950 shadow-[0_10px_24px_rgba(255,255,255,0.12)]'
               : 'text-zinc-500 hover:text-zinc-100'

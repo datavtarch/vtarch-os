@@ -17,10 +17,11 @@ body {
 }
 
 .field-input {
+  box-sizing: border-box;
   min-height: 2.75rem;
   width: 100%;
   border: 1px solid rgb(255 255 255 / 0.1);
-  border-radius: 0.375rem;
+  border-radius: 0.875rem;
   background: rgb(0 0 0 / 0.2);
   padding: 0 0.75rem;
   color: white;
@@ -42,4 +43,24 @@ body {
 .field-input option {
   background: #111318;
   color: white;
+}
+
+.capture-fields {
+  height: 22rem;
+}
+
+.capture-error-slot {
+  min-height: 2.75rem;
+}
+
+.app-scroll {
+  scrollbar-width: none;
+}
+
+.app-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.stable-textarea {
+  overflow-y: auto;
 }
