@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   Bell,
   CalendarDays,
@@ -157,39 +157,48 @@ function App() {
   const [activeView, setActiveView] = useState<ViewId>('today')
   const [selectedTaskId, setSelectedTaskId] = useState<string>(mockDashboardData.tasks[0]?.ID || '')
   const [isCaptureOpen, setIsCaptureOpen] = useState(false)
+  const [captureKind, setCaptureKind] = useState<CaptureKind>('task')
   const [isSetupOpen, setIsSetupOpen] = useState(() => !getRuntimeConfig().appsScriptUrl)
   const [busyTaskId, setBusyTaskId] = useState('')
   const [isUsingMock, setIsUsingMock] = useState(true)
 
   const hasRemote = Boolean(runtimeConfig.appsScriptUrl)
 
+  const loadDashboard = useCallback(async (loadingMessage = 'Đang tải dữ liệu') => {
+    setSyncState('loading')
+    setSyncMessage(loadingMessage)
+    try {
+      const data = await getDashboardData()
+      const hasRows = Boolean(hasRemote && (data.tasks.length || data.notes.length || data.finance.length))
+      const nextDashboard = withFreshMetrics(hasRows ? data : mockDashboardData)
+      setDashboard(nextDashboard)
+      setSelectedTaskId(nextDashboard.tasks[0]?.ID || '')
+      setIsUsingMock(!hasRows)
+      setSource(hasRemote ? (hasRows ? 'Google Sheets' : 'Google Sheets · dữ liệu mẫu') : 'dữ liệu mẫu')
+      setSyncState('ready')
+      setSyncMessage(hasRows ? 'Đã đồng bộ' : 'Đang dùng dữ liệu mẫu')
+    } catch (error) {
+      setDashboard(withFreshMetrics(mockDashboardData))
+      setSelectedTaskId(mockDashboardData.tasks[0]?.ID || '')
+      setIsUsingMock(true)
+      setSource('dữ liệu mẫu')
+      setSyncState('error')
+      setSyncMessage(error instanceof Error ? error.message : 'Không tải được dữ liệu')
+    }
+  }, [hasRemote])
+
+  const openCapture = (kind: CaptureKind = 'task') => {
+    setCaptureKind(kind)
+    setIsCaptureOpen(true)
+  }
+
   useEffect(() => {
     document.title = runtimeConfig.appName || 'VTARCH OS'
   }, [runtimeConfig.appName])
 
   useEffect(() => {
-    setSyncState('loading')
-    setSyncMessage('Đang tải dữ liệu')
-    getDashboardData()
-      .then((data) => {
-        const hasRows = Boolean(hasRemote && (data.tasks.length || data.notes.length || data.finance.length))
-        const nextDashboard = withFreshMetrics(hasRows ? data : mockDashboardData)
-        setDashboard(nextDashboard)
-        setSelectedTaskId(nextDashboard.tasks[0]?.ID || '')
-        setIsUsingMock(!hasRows)
-        setSource(hasRemote ? (hasRows ? 'Google Sheets' : 'Google Sheets · dữ liệu mẫu') : 'dữ liệu mẫu')
-        setSyncState('ready')
-        setSyncMessage(hasRows ? 'Đã đồng bộ' : 'Đang dùng dữ liệu mẫu')
-      })
-      .catch((error) => {
-        setDashboard(withFreshMetrics(mockDashboardData))
-        setSelectedTaskId(mockDashboardData.tasks[0]?.ID || '')
-        setIsUsingMock(true)
-        setSource('dữ liệu mẫu')
-        setSyncState('error')
-        setSyncMessage(error instanceof Error ? error.message : 'Không tải được dữ liệu')
-      })
-  }, [hasRemote, runtimeConfig.appsScriptUrl])
+    void loadDashboard()
+  }, [loadDashboard, runtimeConfig.appsScriptUrl])
 
   const openTasks = useMemo(() => dashboard.tasks.filter(isOpenTask), [dashboard.tasks])
   const overdueTasks = useMemo(() => openTasks.filter(isOverdue), [openTasks])
@@ -374,7 +383,9 @@ function App() {
         <Topbar
           activeLabel={activeLabel}
           appName={runtimeConfig.appName}
-          onCapture={() => setIsCaptureOpen(true)}
+          isBusy={syncState === 'loading' || syncState === 'saving'}
+          onCapture={() => openCapture('task')}
+          onRefresh={() => void loadDashboard('Đang đồng bộ lại')}
           onSetup={() => setIsSetupOpen(true)}
           source={source}
           syncMessage={syncMessage}
@@ -392,7 +403,8 @@ function App() {
               busyTaskId={busyTaskId}
               expense={expense}
               focusTask={focusTask}
-              onCapture={() => setIsCaptureOpen(true)}
+              notesCount={dashboard.notes.length}
+              onCapture={openCapture}
               onStatusChange={handleTaskStatusChange}
               openTasks={openTasks}
               overdueCount={overdueTasks.length}
@@ -404,7 +416,7 @@ function App() {
           {activeView === 'tasks' && (
             <TasksView
               busyTaskId={busyTaskId}
-              onCapture={() => setIsCaptureOpen(true)}
+              onCapture={() => openCapture('task')}
               onStatusChange={handleTaskStatusChange}
               selectedTask={selectedTask}
               setSelectedTaskId={setSelectedTaskId}
@@ -425,21 +437,22 @@ function App() {
               expense={expense}
               finance={dashboard.finance}
               income={income}
-              onCapture={() => setActiveView('capture')}
+              onCapture={() => openCapture('finance')}
             />
           )}
         </section>
       </div>
 
       <button
-        className="fixed bottom-[82px] right-4 z-30 grid size-14 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_18px_48px_rgba(255,255,255,0.18)] md:left-1/2 md:right-auto md:translate-x-[306px]"
-        onClick={() => setIsCaptureOpen(true)}
+        className="fixed bottom-[82px] right-4 z-30 hidden size-14 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_18px_48px_rgba(255,255,255,0.18)] md:left-1/2 md:right-auto md:grid md:translate-x-[306px]"
+        onClick={() => openCapture('task')}
         type="button"
       >
         <Plus size={22} />
       </button>
       <CaptureModal
         error={syncState === 'error' ? syncMessage : ''}
+        initialKind={captureKind}
         isOpen={isCaptureOpen}
         isSaving={syncState === 'saving'}
         onClose={() => setIsCaptureOpen(false)}
@@ -460,7 +473,9 @@ function App() {
 function Topbar({
   activeLabel,
   appName,
+  isBusy,
   onCapture,
+  onRefresh,
   onSetup,
   source,
   syncMessage,
@@ -468,7 +483,9 @@ function Topbar({
 }: {
   activeLabel: string
   appName: string
+  isBusy: boolean
   onCapture: () => void
+  onRefresh: () => void
   onSetup: () => void
   source: string
   syncMessage: string
@@ -493,6 +510,15 @@ function Topbar({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            className="grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+            onClick={onRefresh}
+            aria-label="Đồng bộ lại"
+            disabled={isBusy}
+            type="button"
+          >
+            <RotateCcw className={syncState === 'loading' ? 'animate-spin' : ''} size={17} />
+          </button>
           <button
             className="grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
             onClick={onSetup}
@@ -686,6 +712,7 @@ function TodayView({
   busyTaskId,
   expense,
   focusTask,
+  notesCount,
   onCapture,
   onStatusChange,
   openTasks,
@@ -698,7 +725,8 @@ function TodayView({
   busyTaskId: string
   expense: number
   focusTask?: Task
-  onCapture: () => void
+  notesCount: number
+  onCapture: (kind: CaptureKind) => void
   onStatusChange: (task: Task, status: Task['Status']) => void
   openTasks: Task[]
   overdueCount: number
@@ -710,20 +738,21 @@ function TodayView({
     <div className="space-y-4">
       <FocusCard
         busyTaskId={busyTaskId}
-        onCapture={onCapture}
+        onCapture={() => onCapture('task')}
         onStatusChange={onStatusChange}
         task={focusTask}
       />
 
-      <section className="grid grid-cols-3 gap-2">
-        <MetricCard icon={CheckCircle2} label="Đang mở" value={openTasks.length} />
-        <MetricCard icon={Bell} label="Quá hạn" value={overdueCount} />
-        <MetricCard icon={WalletCards} label="Chi" value={formatMoney(expense)} />
-      </section>
+      <TodayQuickActions
+        balance={balance}
+        notesCount={notesCount}
+        onCapture={onCapture}
+        openTasksCount={openTasks.length}
+      />
 
       <section className="grid gap-4 xl:grid-cols-[1fr_340px]">
-        <Panel title="Việc cần xử lý" action="Tất cả" onAction={() => setActiveView('tasks')}>
-          <TaskList
+        <Panel title="Tiếp theo" action="Tất cả" onAction={() => setActiveView('tasks')}>
+          <TaskTimeline
             selectedId={focusTask?.ID}
             setSelectedTaskId={(id) => {
               setSelectedTaskId(id)
@@ -733,26 +762,65 @@ function TodayView({
           />
         </Panel>
 
-        <Panel title="Tài chính">
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">Còn lại</p>
-              <p className={balance >= 0 ? 'mt-2 text-3xl font-semibold text-white' : 'mt-2 text-3xl font-semibold text-amber-200'}>
-                {formatMoney(balance)}
-              </p>
-            </div>
-            <button
-              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-medium text-zinc-200 hover:bg-white/[0.08]"
-              onClick={() => setActiveView('finance')}
-              type="button"
-            >
-              <CreditCard size={15} />
-              Xem thu chi
-            </button>
-          </div>
+        <Panel title="Tình trạng">
+          <section className="grid grid-cols-2 gap-2">
+            <MetricCard icon={CheckCircle2} label="Đang mở" value={openTasks.length} />
+            <MetricCard icon={Bell} label="Quá hạn" value={overdueCount} />
+          </section>
+          <button
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.05] text-sm font-medium text-zinc-200 hover:bg-white/[0.08]"
+            onClick={() => setActiveView('finance')}
+            type="button"
+          >
+            <CreditCard size={15} />
+            Xem tài chính
+          </button>
+          <p className="mt-3 truncate text-xs text-zinc-500">Chi: {formatMoney(expense)} VND</p>
         </Panel>
       </section>
     </div>
+  )
+}
+
+function TodayQuickActions({
+  balance,
+  notesCount,
+  onCapture,
+  openTasksCount,
+}: {
+  balance: number
+  notesCount: number
+  onCapture: (kind: CaptureKind) => void
+  openTasksCount: number
+}) {
+  const actions: Array<{
+    icon: LucideIcon
+    kind: CaptureKind
+    label: string
+    meta: string
+  }> = [
+    { icon: Plus, kind: 'task', label: 'Ghi việc', meta: `${openTasksCount} đang mở` },
+    { icon: NotebookText, kind: 'note', label: 'Ghi note', meta: `${notesCount} ghi chú` },
+    { icon: WalletCards, kind: 'finance', label: 'Thu chi', meta: `${formatMoney(balance)} VND` },
+  ]
+
+  return (
+    <section className="grid grid-cols-3 gap-2">
+      {actions.map(({ icon: Icon, kind, label, meta }) => (
+        <button
+          className="group min-h-[5.75rem] rounded-[1.4rem] border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_18px_60px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl transition hover:border-white/20 hover:bg-white/[0.08]"
+          key={kind}
+          onClick={() => onCapture(kind)}
+          type="button"
+        >
+          <span className="grid size-8 place-items-center rounded-2xl bg-white text-zinc-950 shadow-[0_10px_28px_rgba(255,255,255,0.12)]">
+            <Icon size={15} />
+          </span>
+          <span className="mt-3 block truncate text-sm font-semibold text-white">{label}</span>
+          <span className="mt-1 block truncate text-[11px] text-zinc-500">{meta}</span>
+        </button>
+      ))}
+    </section>
   )
 }
 
@@ -768,23 +836,31 @@ function FocusCard({
   task?: Task
 }) {
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-white/[0.12] bg-white/[0.065] p-4 shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:p-5">
+    <section className="relative min-h-[18rem] overflow-hidden rounded-[2rem] border border-white/[0.14] bg-white/[0.07] p-4 shadow-[0_30px_110px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl md:p-5">
       <div
         aria-hidden="true"
-        className="absolute inset-0 opacity-80"
+        className="absolute inset-0 opacity-90"
         style={{
           background:
-            'linear-gradient(115deg, rgba(255,255,255,0.12), transparent 28%), linear-gradient(245deg, rgba(125,211,252,0.12), transparent 34%)',
+            'linear-gradient(118deg, rgba(255,255,255,0.16), transparent 30%), linear-gradient(245deg, rgba(110,231,183,0.14), transparent 34%)',
         }}
       />
-      <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <div className="relative flex h-full min-h-[16rem] flex-col justify-between gap-5">
         <div className="min-w-0">
-          <span className="rounded-full border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-medium text-[#dffcf2]">
-            Hôm nay
-          </span>
-          <h3 className="mt-4 max-w-3xl text-2xl font-semibold text-white md:text-3xl">
+          <div className="flex items-center justify-between gap-3">
+            <span className="rounded-full border border-white/[0.15] bg-white/[0.08] px-2.5 py-1 text-xs font-semibold text-[#dffcf2]">
+              Việc chính
+            </span>
+            <span className={`rounded-full px-2.5 py-1 text-xs ring-1 ${task ? statusTone[task.Status] : 'bg-zinc-500/10 text-zinc-400 ring-zinc-500/20'}`}>
+              {task ? statusLabel[task.Status] : 'Trống'}
+            </span>
+          </div>
+          <h3 className="mt-5 line-clamp-3 max-w-3xl text-3xl font-semibold leading-[1.08] text-white md:text-4xl">
             {task?.Title || 'Chưa có việc cần tập trung.'}
           </h3>
+          <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-400">
+            {task?.Note || 'Ghi một việc quan trọng, xử lý xong rồi mới chuyển sang việc tiếp theo.'}
+          </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-xs text-zinc-300 backdrop-blur">
               {task?.Project || 'Personal OS'}
@@ -798,9 +874,9 @@ function FocusCard({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 md:w-64">
+        <div className="grid grid-cols-2 gap-2 md:ml-auto md:w-72">
           <button
-            className="min-h-10 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-medium text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+            className="min-h-11 rounded-2xl border border-white/10 bg-white/[0.055] text-sm font-medium text-zinc-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!task || busyTaskId === task.ID || task.Status === 'Doing'}
             onClick={() => task && onStatusChange(task, 'Doing')}
             type="button"
@@ -808,7 +884,7 @@ function FocusCard({
             Đang làm
           </button>
           <button
-            className="min-h-10 rounded-2xl bg-white text-sm font-semibold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="min-h-11 rounded-2xl bg-white text-sm font-semibold text-zinc-950 shadow-[0_16px_45px_rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!task || busyTaskId === task.ID || task.Status === 'Done'}
             onClick={() => task && onStatusChange(task, 'Done')}
             type="button"
@@ -816,7 +892,7 @@ function FocusCard({
             {task && busyTaskId === task.ID ? 'Đang lưu' : 'Xong'}
           </button>
           <button
-            className="col-span-2 min-h-10 rounded-2xl border border-white/10 bg-black/20 text-sm font-medium text-zinc-300 hover:bg-white/[0.06]"
+            className="col-span-2 min-h-11 rounded-2xl border border-white/10 bg-black/20 text-sm font-medium text-zinc-300 hover:bg-white/[0.06]"
             onClick={onCapture}
             type="button"
           >
@@ -977,6 +1053,54 @@ function TaskList({
   )
 }
 
+function TaskTimeline({
+  selectedId,
+  setSelectedTaskId,
+  tasks,
+}: {
+  selectedId?: string
+  setSelectedTaskId: (id: string) => void
+  tasks: Task[]
+}) {
+  if (!tasks.length) {
+    return <EmptyState body="Ghi việc đầu tiên để bắt đầu ngày." title="Chưa có việc mở" />
+  }
+
+  return (
+    <div className="space-y-2">
+      {tasks.map((task, index) => {
+        const isActive = selectedId === task.ID
+        return (
+          <button
+            className={`grid min-h-[76px] w-full grid-cols-[2.25rem_1fr_auto] items-start gap-3 rounded-[1.35rem] border px-3 py-3 text-left transition ${
+              isActive
+                ? 'border-emerald-200/35 bg-emerald-200/[0.08]'
+                : 'border-white/10 bg-black/[0.18] hover:border-white/20 hover:bg-white/[0.06]'
+            }`}
+            key={task.ID}
+            onClick={() => setSelectedTaskId(task.ID)}
+            type="button"
+          >
+            <span className="relative grid size-9 place-items-center rounded-2xl border border-white/10 bg-white/[0.045] text-xs font-semibold text-zinc-400">
+              {index + 1}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-zinc-100">{task.Title}</span>
+              <span className="mt-1 flex min-w-0 flex-wrap items-center gap-2 text-xs text-zinc-500">
+                <span className="truncate">{task.Project || 'Không có dự án'}</span>
+                <span>{formatDate(task.DueAt)}</span>
+              </span>
+            </span>
+            <span className={`rounded-full px-2 py-1 text-xs ring-1 ${priorityTone[task.Priority]}`}>
+              {task.Priority}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function TaskDetail({
   busyTaskId,
   onStatusChange,
@@ -1070,7 +1194,7 @@ function CaptureView({
   return (
     <section className="grid gap-4 xl:grid-cols-[420px_1fr]">
       <Panel title="Ghi nhanh">
-        <CaptureForm error={error} isSaving={isSaving} onCreate={onCreate} />
+        <CaptureForm error={error} initialKind="task" isSaving={isSaving} onCreate={onCreate} />
       </Panel>
 
       <Panel title="Ghi chú gần đây">
@@ -1093,15 +1217,22 @@ function CaptureView({
 
 function CaptureForm({
   error,
+  initialKind = 'task',
   isSaving,
   onCreate,
 }: {
   error: string
+  initialKind?: CaptureKind
   isSaving: boolean
   onCreate: (draft: CaptureDraft) => Promise<boolean>
 }) {
-  const [draft, setDraft] = useState<CaptureDraft>(emptyDraft)
+  const [draft, setDraft] = useState<CaptureDraft>(() => ({ ...emptyDraft, kind: initialKind }))
   const [activePicker, setActivePicker] = useState<CapturePicker>('idle')
+
+  useEffect(() => {
+    setDraft((current) => ({ ...current, kind: initialKind }))
+    setActivePicker('idle')
+  }, [initialKind])
 
   const isValid =
     draft.kind === 'task'
@@ -1268,9 +1399,10 @@ function CaptureToolbar({
             { icon: Tags, id: 'category', label: 'Nhóm', value: draft.category || 'general' },
             { icon: Folder, id: 'project', label: 'Dự án', value: draft.project || 'Không có' },
           ]
+  const gridClass = tools.length === 2 ? 'grid-cols-2' : 'grid-cols-4'
 
   return (
-    <div className="mt-3 grid grid-cols-4 gap-2">
+    <div className={`mt-3 grid ${gridClass} gap-2`}>
       {tools.map(({ icon: Icon, id, label, value }) => (
         <button
           className={`min-h-[4.25rem] rounded-2xl border px-2 py-2 text-left transition ${
@@ -1289,12 +1421,6 @@ function CaptureToolbar({
           </span>
         </button>
       ))}
-      {Array.from({ length: 4 - tools.length }).map((_, index) => (
-        <div
-          className="min-h-[4.25rem] rounded-2xl border border-white/5 bg-white/[0.02]"
-          key={`empty-${index}`}
-        />
-      ))}
     </div>
   )
 }
@@ -1308,13 +1434,18 @@ function CapturePickerPanel({
   draft: CaptureDraft
   setDraft: React.Dispatch<React.SetStateAction<CaptureDraft>>
 }) {
+  const idleHint =
+    draft.kind === 'task'
+      ? 'Thêm hạn, dự án, ưu tiên hoặc ghi chú khi cần.'
+      : draft.kind === 'note'
+        ? 'Gắn dự án hoặc tag để tìm lại nhanh hơn.'
+        : 'Chọn loại thu chi, ngày, nhóm hoặc dự án.'
+
   if (activePicker === 'idle') {
     return (
       <div className="mt-3 h-28 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
         <p className="text-xs uppercase tracking-[0.14em] text-zinc-600">Chi tiết</p>
-        <p className="mt-2 text-sm leading-6 text-zinc-400">
-          Chọn một nút phía trên để thêm ngày, dự án, ưu tiên hoặc nhóm. Khung này luôn giữ nguyên chiều cao.
-        </p>
+        <p className="mt-2 text-sm leading-6 text-zinc-400">{idleHint}</p>
       </div>
     )
   }
@@ -1463,12 +1594,14 @@ function FinanceView({
 
 function CaptureModal({
   error,
+  initialKind,
   isOpen,
   isSaving,
   onClose,
   onCreate,
 }: {
   error: string
+  initialKind: CaptureKind
   isOpen: boolean
   isSaving: boolean
   onClose: () => void
@@ -1492,7 +1625,7 @@ function CaptureModal({
             <X size={17} />
           </button>
         </div>
-        <CaptureForm error={error} isSaving={isSaving} onCreate={onCreate} />
+        <CaptureForm error={error} initialKind={initialKind} isSaving={isSaving} onCreate={onCreate} />
       </div>
     </div>
   )
