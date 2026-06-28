@@ -1331,7 +1331,6 @@ function CaptureMainInput({
       <div className="mt-4 h-32 rounded-3xl border border-white/10 bg-black/20 p-3">
         <div className="grid h-full grid-rows-[1fr_1fr] gap-2">
           <input
-            autoFocus
             className="w-full bg-transparent text-3xl font-semibold text-white outline-none placeholder:text-zinc-700"
             inputMode="numeric"
             onChange={(event) => setDraft((current) => ({ ...current, amount: event.target.value }))}
@@ -1356,7 +1355,6 @@ function CaptureMainInput({
   return (
     <div className="mt-4 h-32 rounded-3xl border border-white/10 bg-black/20 p-3">
       <textarea
-        autoFocus
         className="stable-textarea h-full w-full resize-none bg-transparent text-xl font-semibold leading-7 text-white outline-none placeholder:text-zinc-700"
         onChange={(event) =>
           setDraft((current) => ({
@@ -1485,7 +1483,6 @@ function CapturePickerPanel({
       ) : null}
       {activePicker === 'project' ? (
         <input
-          autoFocus
           className="field-input"
           onChange={(event) => setDraft((current) => ({ ...current, project: event.target.value }))}
           placeholder="Tên dự án"
@@ -1494,7 +1491,6 @@ function CapturePickerPanel({
       ) : null}
       {activePicker === 'category' ? (
         <input
-          autoFocus
           className="field-input"
           onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}
           placeholder={draft.kind === 'finance' ? 'ăn uống' : 'ý tưởng'}
@@ -1503,7 +1499,6 @@ function CapturePickerPanel({
       ) : null}
       {activePicker === 'note' ? (
         <textarea
-          autoFocus
           className="field-input stable-textarea h-full resize-none py-2"
           onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
           placeholder="Ghi chú thêm"
