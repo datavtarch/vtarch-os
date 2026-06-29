@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   Bell,
   CalendarDays,
@@ -142,6 +142,12 @@ function sortByDueDate(tasks: Task[]) {
   })
 }
 
+function getStandaloneMode() {
+  if (typeof window === 'undefined') return false
+  const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean }
+  return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true
+}
+
 function withFreshMetrics(data: DashboardData): DashboardData {
   const openTasks = data.tasks.filter(isOpenTask)
   const overdueTasks = openTasks.filter(isOverdue)
@@ -173,6 +179,9 @@ function App() {
   const [isSetupOpen, setIsSetupOpen] = useState(() => !getRuntimeConfig().appsScriptUrl)
   const [busyTaskId, setBusyTaskId] = useState('')
   const [isUsingMock, setIsUsingMock] = useState(true)
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
+  const [isStandalone, setIsStandalone] = useState(getStandaloneMode)
+  const contentRef = useRef<HTMLElement | null>(null)
 
   const hasRemote = Boolean(runtimeConfig.appsScriptUrl)
 
@@ -224,8 +233,40 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const media = window.matchMedia('(display-mode: standalone)')
+    const syncNetwork = () => setIsOnline(navigator.onLine)
+    const syncDisplayMode = () => setIsStandalone(getStandaloneMode())
+
+    syncNetwork()
+    syncDisplayMode()
+    window.addEventListener('online', syncNetwork)
+    window.addEventListener('offline', syncNetwork)
+    if (media.addEventListener) {
+      media.addEventListener('change', syncDisplayMode)
+    } else {
+      media.addListener(syncDisplayMode)
+    }
+
+    return () => {
+      window.removeEventListener('online', syncNetwork)
+      window.removeEventListener('offline', syncNetwork)
+      if (media.removeEventListener) {
+        media.removeEventListener('change', syncDisplayMode)
+      } else {
+        media.removeListener(syncDisplayMode)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     void loadDashboard()
   }, [loadDashboard, runtimeConfig.appsScriptUrl])
+
+  useEffect(() => {
+    if (contentRef.current) contentRef.current.scrollTop = 0
+  }, [activeView])
 
   const openTasks = useMemo(() => dashboard.tasks.filter(isOpenTask), [dashboard.tasks])
   const overdueTasks = useMemo(() => openTasks.filter(isOverdue), [openTasks])
@@ -396,7 +437,7 @@ function App() {
   }
 
   return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-[#050609] text-zinc-100">
+    <main className="app-shell relative isolate overflow-hidden bg-[#050609] text-zinc-100">
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 -z-20 opacity-95"
@@ -415,11 +456,13 @@ function App() {
           maskImage: 'linear-gradient(to bottom, black 0%, black 58%, transparent 100%)',
         }}
       />
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[760px] flex-col">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-[760px] flex-col">
         <Topbar
           activeLabel={activeLabel}
           appName={runtimeConfig.appName}
           isBusy={syncState === 'loading' || syncState === 'saving'}
+          isOnline={isOnline}
+          isStandalone={isStandalone}
           onCapture={() => openCapture('task')}
           onRefresh={() => void loadDashboard('Đang đồng bộ lại')}
           onSetup={() => setIsSetupOpen(true)}
@@ -428,54 +471,56 @@ function App() {
           syncState={syncState}
         />
 
-        <section className="min-h-0 flex-1 px-3 pb-28 pt-4 md:px-4 md:pb-32">
-          {!hasRemote && (
-            <SetupBanner onSetup={() => setIsSetupOpen(true)} />
-          )}
+        <section ref={contentRef} className="app-content app-scroll min-h-0 flex-1 overflow-y-auto px-3 pt-4 md:px-4">
+          <div className="app-view" key={activeView}>
+            {!hasRemote && (
+              <SetupBanner onSetup={() => setIsSetupOpen(true)} />
+            )}
 
-          {activeView === 'today' && (
-            <TodayView
-              balance={balance}
-              busyTaskId={busyTaskId}
-              expense={expense}
-              focusTask={focusTask}
-              notesCount={dashboard.notes.length}
-              onCapture={openCapture}
-              onStatusChange={handleTaskStatusChange}
-              openTasks={openTasks}
-              overdueCount={overdueTasks.length}
-              setActiveView={setActiveView}
-              setSelectedTaskId={setSelectedTaskId}
-              tasks={upcomingTasks}
-            />
-          )}
-          {activeView === 'tasks' && (
-            <TasksView
-              busyTaskId={busyTaskId}
-              onCapture={() => openCapture('task')}
-              onStatusChange={handleTaskStatusChange}
-              selectedTask={selectedTask}
-              setSelectedTaskId={setSelectedTaskId}
-              tasks={dashboard.tasks}
-            />
-          )}
-          {activeView === 'capture' && (
-            <CaptureView
-              error={syncState === 'error' ? syncMessage : ''}
-              isSaving={syncState === 'saving'}
-              notes={dashboard.notes}
-              onCreate={handleCapture}
-            />
-          )}
-          {activeView === 'finance' && (
-            <FinanceView
-              balance={balance}
-              expense={expense}
-              finance={dashboard.finance}
-              income={income}
-              onCapture={() => openCapture('finance')}
-            />
-          )}
+            {activeView === 'today' && (
+              <TodayView
+                balance={balance}
+                busyTaskId={busyTaskId}
+                expense={expense}
+                focusTask={focusTask}
+                notesCount={dashboard.notes.length}
+                onCapture={openCapture}
+                onStatusChange={handleTaskStatusChange}
+                openTasks={openTasks}
+                overdueCount={overdueTasks.length}
+                setActiveView={setActiveView}
+                setSelectedTaskId={setSelectedTaskId}
+                tasks={upcomingTasks}
+              />
+            )}
+            {activeView === 'tasks' && (
+              <TasksView
+                busyTaskId={busyTaskId}
+                onCapture={() => openCapture('task')}
+                onStatusChange={handleTaskStatusChange}
+                selectedTask={selectedTask}
+                setSelectedTaskId={setSelectedTaskId}
+                tasks={dashboard.tasks}
+              />
+            )}
+            {activeView === 'capture' && (
+              <CaptureView
+                error={syncState === 'error' ? syncMessage : ''}
+                isSaving={syncState === 'saving'}
+                notes={dashboard.notes}
+                onCreate={handleCapture}
+              />
+            )}
+            {activeView === 'finance' && (
+              <FinanceView
+                balance={balance}
+                expense={expense}
+                finance={dashboard.finance}
+                income={income}
+                onCapture={() => openCapture('finance')}
+              />
+            )}
+          </div>
         </section>
       </div>
 
@@ -510,6 +555,8 @@ function Topbar({
   activeLabel,
   appName,
   isBusy,
+  isOnline,
+  isStandalone,
   onCapture,
   onRefresh,
   onSetup,
@@ -520,6 +567,8 @@ function Topbar({
   activeLabel: string
   appName: string
   isBusy: boolean
+  isOnline: boolean
+  isStandalone: boolean
   onCapture: () => void
   onRefresh: () => void
   onSetup: () => void
@@ -533,15 +582,20 @@ function Topbar({
     ready: 'bg-emerald-400',
     saving: 'bg-amber-300',
   }[syncState]
+  const modeLabel = isOnline ? (isStandalone ? 'App' : 'Web') : 'Offline'
+  const effectiveSyncDot = isOnline ? syncDot : 'bg-amber-300'
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#070910]/84 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_18px_70px_rgba(0,0,0,0.38),inset_0_-1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl md:px-4">
+    <header className="z-20 shrink-0 border-b border-white/[0.08] bg-[#070910]/84 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_18px_70px_rgba(0,0,0,0.38),inset_0_-1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl md:px-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-medium text-zinc-500">{appName}</p>
           <h1 className="truncate text-[1.7rem] font-semibold leading-8 text-white">{activeLabel}</h1>
           <div className="mt-1 flex min-w-0 items-center gap-2">
-            <span className={`size-2.5 shrink-0 rounded-full ${syncDot} shadow-[0_0_18px_currentColor]`} />
+            <span className={`size-2.5 shrink-0 rounded-full ${effectiveSyncDot} shadow-[0_0_18px_currentColor]`} />
+            <span className="shrink-0 rounded-full border border-white/[0.10] bg-white/[0.045] px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-400">
+              {modeLabel}
+            </span>
             <p className="truncate text-xs text-zinc-500">{source} · {syncMessage}</p>
           </div>
         </div>
@@ -1715,7 +1769,7 @@ function MobileNav({
   setActiveView: (view: ViewId) => void
 }) {
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-30 mx-auto grid max-w-[760px] grid-cols-4 rounded-[1.65rem] border border-white/[0.12] bg-[#0d1016]/82 p-1 shadow-[0_20px_70px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.09)] backdrop-blur-2xl">
+    <nav className="mobile-nav fixed inset-x-3 z-30 mx-auto grid max-w-[760px] grid-cols-4 rounded-[1.65rem] border border-white/[0.12] bg-[#0d1016]/82 p-1 shadow-[0_20px_70px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.09)] backdrop-blur-2xl">
       {views.map(({ id, label, icon: Icon }) => (
         <button
           className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-[1.25rem] text-[10px] font-medium transition ${
@@ -1725,6 +1779,7 @@ function MobileNav({
           }`}
           key={id}
           onClick={() => setActiveView(id)}
+          aria-current={activeView === id ? 'page' : undefined}
           type="button"
         >
           <Icon size={16} />

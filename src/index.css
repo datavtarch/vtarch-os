@@ -1,9 +1,20 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+:root {
+  --page-slide-dur: 250ms;
+  --page-fade-dur: 250ms;
+  --page-slide-distance: 8px;
+  --page-blur: 3px;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 html {
   background: #050609;
   color-scheme: dark;
+  height: 100%;
+  overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
@@ -12,19 +23,40 @@ html {
 body {
   margin: 0;
   width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   background: #050609;
   font-family: "Aptos", "Segoe UI Variable", "Segoe UI", ui-sans-serif, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
   overflow-x: hidden;
   overscroll-behavior: none;
   text-rendering: geometricPrecision;
 }
 
 #root {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+}
+
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app-content {
+  padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-view {
+  animation:
+    app-view-enter var(--page-slide-dur) var(--page-slide-ease),
+    app-view-fade var(--page-fade-dur) var(--page-fade-ease);
+}
+
+.mobile-nav {
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 button,
@@ -95,4 +127,32 @@ textarea:focus-visible {
 
 .stable-textarea {
   overflow-y: auto;
+}
+
+@keyframes app-view-enter {
+  from {
+    filter: blur(var(--page-blur));
+    transform: translateY(var(--page-slide-distance));
+  }
+
+  to {
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes app-view-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-view {
+    animation: none !important;
+  }
 }
