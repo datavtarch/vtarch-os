@@ -55,6 +55,14 @@ body {
     app-view-fade var(--page-fade-dur) var(--page-fade-ease);
 }
 
+.command-center [cmdk-group-heading] {
+  padding: 0.75rem 0.75rem 0.35rem;
+  color: rgb(113 113 122);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .mobile-nav {
   bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
@@ -127,6 +135,15 @@ textarea:focus-visible {
 
 .stable-textarea {
   overflow-y: auto;
+}
+
+.vtarch-toaster [data-sonner-toast] {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 1.25rem;
+  background: rgb(11 13 18 / 0.94);
+  color: white;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.42), inset 0 1px 0 rgb(255 255 255 / 0.09);
+  backdrop-filter: blur(22px);
 }
 
 @keyframes app-view-enter {

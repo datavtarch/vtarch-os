@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Command } from 'cmdk'
 import {
   Bell,
   CalendarDays,
   Check,
   CheckCircle2,
   Circle,
+  Command as CommandIcon,
   CreditCard,
   Flag,
   Folder,
@@ -13,6 +15,7 @@ import {
   NotebookText,
   Plus,
   RotateCcw,
+  Search,
   Settings,
   ShieldCheck,
   Tags,
@@ -20,6 +23,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { Toaster, toast } from 'sonner'
 import {
   createFinance,
   createNote,
@@ -175,6 +179,7 @@ function App() {
   const [activeView, setActiveView] = useState<ViewId>('today')
   const [selectedTaskId, setSelectedTaskId] = useState<string>(mockDashboardData.tasks[0]?.ID || '')
   const [isCaptureOpen, setIsCaptureOpen] = useState(false)
+  const [isCommandOpen, setIsCommandOpen] = useState(false)
   const [captureKind, setCaptureKind] = useState<CaptureKind>('task')
   const [isSetupOpen, setIsSetupOpen] = useState(() => !getRuntimeConfig().appsScriptUrl)
   const [busyTaskId, setBusyTaskId] = useState('')
@@ -185,7 +190,7 @@ function App() {
 
   const hasRemote = Boolean(runtimeConfig.appsScriptUrl)
 
-  const loadDashboard = useCallback(async (loadingMessage = 'Đang tải dữ liệu') => {
+  const loadDashboard = useCallback(async (loadingMessage = 'Đang tải dữ liệu', notify = false) => {
     setSyncState('loading')
     setSyncMessage(loadingMessage)
     try {
@@ -198,13 +203,18 @@ function App() {
       setSource(hasRemote ? (hasRows ? 'Google Sheets' : 'Google Sheets · dữ liệu mẫu') : 'dữ liệu mẫu')
       setSyncState('ready')
       setSyncMessage(hasRows ? 'Đã đồng bộ' : 'Đang dùng dữ liệu mẫu')
+      if (notify) {
+        toast.success(hasRows ? 'Đã đồng bộ Google Sheets' : 'Đang dùng dữ liệu mẫu')
+      }
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không tải được dữ liệu'
       setDashboard(withFreshMetrics(mockDashboardData))
       setSelectedTaskId(mockDashboardData.tasks[0]?.ID || '')
       setIsUsingMock(true)
       setSource('dữ liệu mẫu')
       setSyncState('error')
-      setSyncMessage(error instanceof Error ? error.message : 'Không tải được dữ liệu')
+      setSyncMessage(message)
+      if (notify) toast.error(message)
     }
   }, [hasRemote])
 
@@ -236,7 +246,15 @@ function App() {
     if (typeof window === 'undefined') return undefined
 
     const media = window.matchMedia('(display-mode: standalone)')
-    const syncNetwork = () => setIsOnline(navigator.onLine)
+    const syncNetwork = () => {
+      const nextOnline = navigator.onLine
+      setIsOnline((current) => {
+        if (current !== nextOnline) {
+          toast(nextOnline ? 'Đã có mạng trở lại' : 'Đang offline')
+        }
+        return nextOnline
+      })
+    }
     const syncDisplayMode = () => setIsStandalone(getStandaloneMode())
 
     syncNetwork()
@@ -263,6 +281,23 @@ function App() {
   useEffect(() => {
     void loadDashboard()
   }, [loadDashboard, runtimeConfig.appsScriptUrl])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setIsCommandOpen((current) => !current)
+      }
+      if (event.key === 'Escape') {
+        setIsCommandOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   useEffect(() => {
     if (contentRef.current) contentRef.current.scrollTop = 0
@@ -308,6 +343,7 @@ function App() {
     setSyncState('ready')
     setSyncMessage(hasRows ? 'Đã kết nối' : 'Đã kết nối, đang dùng dữ liệu mẫu')
     setIsSetupOpen(false)
+    toast.success(hasRows ? 'Đã kết nối Google Sheets' : 'Đã kết nối, chưa có dữ liệu thật')
   }
 
   const handleResetSetup = () => {
@@ -320,11 +356,13 @@ function App() {
     setSource(nextConfig.appsScriptUrl ? 'Google Sheets' : 'dữ liệu mẫu')
     setSyncState('ready')
     setSyncMessage(nextConfig.appsScriptUrl ? 'Đã quay về cấu hình mặc định' : 'Đang dùng dữ liệu mẫu')
+    toast('Đã xóa cấu hình kết nối')
   }
 
   const handleCapture = async (draft: CaptureDraft) => {
     setSyncState('saving')
     setSyncMessage('Đang lưu')
+    let successMessage = 'Đã lưu'
 
     try {
       if (draft.kind === 'task') {
@@ -346,6 +384,7 @@ function App() {
         )
         setSelectedTaskId(task.ID)
         setActiveView('tasks')
+        successMessage = 'Đã tạo việc mới'
       }
 
       if (draft.kind === 'note') {
@@ -365,6 +404,7 @@ function App() {
           ),
         )
         setActiveView('capture')
+        successMessage = 'Đã lưu ghi chú'
       }
 
       if (draft.kind === 'finance') {
@@ -385,6 +425,7 @@ function App() {
           ),
         )
         setActiveView('finance')
+        successMessage = draft.financeType === 'income' ? 'Đã ghi khoản thu' : 'Đã ghi khoản chi'
       }
 
       setIsUsingMock(false)
@@ -392,10 +433,13 @@ function App() {
       setSyncState('ready')
       setSyncMessage(hasRemote ? 'Đã lưu vào Google Sheets' : 'Đã lưu tạm')
       setIsCaptureOpen(false)
+      toast.success(successMessage)
       return true
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không lưu được dữ liệu'
       setSyncState('error')
-      setSyncMessage(error instanceof Error ? error.message : 'Không lưu được dữ liệu')
+      setSyncMessage(message)
+      toast.error(message)
       return false
     }
   }
@@ -403,8 +447,10 @@ function App() {
   const handleTaskStatusChange = async (task: Task, status: Task['Status']) => {
     if (task.Status === status || busyTaskId) return
     if (isUsingMock && hasRemote) {
+      const message = 'Dữ liệu mẫu không thể cập nhật. Hãy tạo việc mới trước.'
       setSyncState('error')
-      setSyncMessage('Dữ liệu mẫu không thể cập nhật. Hãy tạo việc mới trước.')
+      setSyncMessage(message)
+      toast.error(message)
       return
     }
 
@@ -428,9 +474,12 @@ function App() {
       setSelectedTaskId(nextTask.ID)
       setSyncState('ready')
       setSyncMessage(hasRemote ? 'Đã cập nhật Google Sheets' : 'Đã cập nhật tạm')
+      toast.success(`Đã chuyển sang ${statusLabel[status]}`)
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không cập nhật được task'
       setSyncState('error')
-      setSyncMessage(error instanceof Error ? error.message : 'Không cập nhật được task')
+      setSyncMessage(message)
+      toast.error(message)
     } finally {
       setBusyTaskId('')
     }
@@ -463,8 +512,9 @@ function App() {
           isBusy={syncState === 'loading' || syncState === 'saving'}
           isOnline={isOnline}
           isStandalone={isStandalone}
+          onCommand={() => setIsCommandOpen(true)}
           onCapture={() => openCapture('task')}
-          onRefresh={() => void loadDashboard('Đang đồng bộ lại')}
+          onRefresh={() => void loadDashboard('Đang đồng bộ lại', true)}
           onSetup={() => setIsSetupOpen(true)}
           source={source}
           syncMessage={syncMessage}
@@ -546,6 +596,35 @@ function App() {
         onReset={handleResetSetup}
         onSave={handleSaveSetup}
       />
+      <CommandCenter
+        balance={balance}
+        dashboard={dashboard}
+        isOpen={isCommandOpen}
+        onCapture={(kind) => {
+          setIsCommandOpen(false)
+          openCapture(kind)
+        }}
+        onClose={() => setIsCommandOpen(false)}
+        onRefresh={() => {
+          setIsCommandOpen(false)
+          void loadDashboard('Đang đồng bộ lại', true)
+        }}
+        onSelectTask={(task) => {
+          setSelectedTaskId(task.ID)
+          setActiveView('tasks')
+          setIsCommandOpen(false)
+        }}
+        onSetup={() => {
+          setIsCommandOpen(false)
+          setIsSetupOpen(true)
+        }}
+        onView={(view) => {
+          setActiveView(view)
+          setIsCommandOpen(false)
+        }}
+        openTasksCount={openTasks.length}
+      />
+      <Toaster className="vtarch-toaster" closeButton position="top-center" theme="dark" />
       <MobileNav activeView={activeView} setActiveView={setActiveView} />
     </main>
   )
@@ -557,6 +636,7 @@ function Topbar({
   isBusy,
   isOnline,
   isStandalone,
+  onCommand,
   onCapture,
   onRefresh,
   onSetup,
@@ -569,6 +649,7 @@ function Topbar({
   isBusy: boolean
   isOnline: boolean
   isStandalone: boolean
+  onCommand: () => void
   onCapture: () => void
   onRefresh: () => void
   onSetup: () => void
@@ -600,6 +681,14 @@ function Topbar({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            className="grid size-10 place-items-center rounded-[1.1rem] border border-white/[0.10] bg-white/[0.045] text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:bg-white/[0.08] hover:text-white"
+            onClick={onCommand}
+            aria-label="Tìm nhanh"
+            type="button"
+          >
+            <Search size={17} />
+          </button>
           <button
             className="grid size-10 place-items-center rounded-[1.1rem] border border-white/[0.10] bg-white/[0.045] text-zinc-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
             onClick={onRefresh}
@@ -1679,6 +1768,167 @@ function FinanceView({
         </div>
       </Panel>
     </section>
+  )
+}
+
+function CommandCenter({
+  balance,
+  dashboard,
+  isOpen,
+  onCapture,
+  onClose,
+  onRefresh,
+  onSelectTask,
+  onSetup,
+  onView,
+  openTasksCount,
+}: {
+  balance: number
+  dashboard: DashboardData
+  isOpen: boolean
+  onCapture: (kind: CaptureKind) => void
+  onClose: () => void
+  onRefresh: () => void
+  onSelectTask: (task: Task) => void
+  onSetup: () => void
+  onView: (view: ViewId) => void
+  openTasksCount: number
+}) {
+  if (!isOpen) return null
+
+  const recentTasks = dashboard.tasks.slice(0, 8)
+  const recentNotes = dashboard.notes.slice(0, 5)
+  const recentFinance = dashboard.finance.slice(0, 5)
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/62 p-2 backdrop-blur-xl md:grid md:place-items-center" onMouseDown={onClose}>
+      <Command
+        className="command-center mx-auto mt-[max(0.75rem,env(safe-area-inset-top))] flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/[0.12] bg-[#0b0d12]/94 shadow-[0_34px_120px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur-2xl md:mt-0"
+        label="Command Center"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-white/[0.10] px-4 py-3">
+          <CommandIcon className="shrink-0 text-emerald-200" size={18} />
+          <Command.Input
+            autoFocus
+            className="h-11 min-w-0 flex-1 bg-transparent text-base font-medium text-white outline-none placeholder:text-zinc-600"
+            placeholder="Tìm việc, ghi chú, lệnh nhanh..."
+          />
+          <button
+            className="grid size-9 shrink-0 place-items-center rounded-2xl border border-white/10 bg-white/[0.04] text-zinc-400 transition hover:bg-white/[0.08] hover:text-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={17} />
+          </button>
+        </div>
+
+        <Command.List className="app-scroll max-h-[min(35rem,calc(100dvh-6rem))] overflow-y-auto p-3">
+          <Command.Empty>
+            <div className="rounded-[1.35rem] border border-dashed border-white/15 bg-white/[0.035] p-5">
+              <p className="text-sm font-semibold text-white">Không tìm thấy</p>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">Thử tìm theo tên việc, dự án, ghi chú hoặc mở lệnh nhanh.</p>
+            </div>
+          </Command.Empty>
+
+          <Command.Group className="space-y-1" heading="Hành động nhanh">
+            <CommandAction icon={Plus} label="Ghi việc mới" meta={`${openTasksCount} việc đang mở`} onSelect={() => onCapture('task')} value="ghi việc mới task" />
+            <CommandAction icon={NotebookText} label="Lưu ghi chú" meta={`${dashboard.notes.length} ghi chú`} onSelect={() => onCapture('note')} value="lưu ghi chú note" />
+            <CommandAction icon={WalletCards} label="Ghi thu chi" meta={`${formatMoney(balance)} VND`} onSelect={() => onCapture('finance')} value="ghi thu chi tài chính finance" />
+            <CommandAction icon={RotateCcw} label="Đồng bộ lại" meta="Google Sheets" onSelect={onRefresh} value="đồng bộ reload refresh" />
+            <CommandAction icon={Settings} label="Kết nối & cài đặt" meta="Sheet, template" onSelect={onSetup} value="cài đặt kết nối setup google sheet" />
+          </Command.Group>
+
+          <Command.Group className="mt-3 space-y-1" heading="Mở màn hình">
+            {views.map(({ id, icon: Icon, label }) => (
+              <CommandAction
+                icon={Icon}
+                key={id}
+                label={label}
+                meta={id === 'tasks' ? `${dashboard.tasks.length} việc` : id === 'finance' ? `${dashboard.finance.length} giao dịch` : 'Mở tab'}
+                onSelect={() => onView(id)}
+                value={`mở ${label} ${id}`}
+              />
+            ))}
+          </Command.Group>
+
+          {recentTasks.length ? (
+            <Command.Group className="mt-3 space-y-1" heading="Công việc">
+              {recentTasks.map((task) => (
+                <CommandAction
+                  icon={task.Status === 'Done' ? CheckCircle2 : Circle}
+                  key={task.ID}
+                  label={task.Title}
+                  meta={`${statusLabel[task.Status]} · ${task.Priority} · ${formatDate(task.DueAt)}`}
+                  onSelect={() => onSelectTask(task)}
+                  value={`task ${task.Title} ${task.Project} ${task.Tags} ${task.Priority} ${statusLabel[task.Status]}`}
+                />
+              ))}
+            </Command.Group>
+          ) : null}
+
+          {recentNotes.length ? (
+            <Command.Group className="mt-3 space-y-1" heading="Ghi chú">
+              {recentNotes.map((note) => (
+                <CommandAction
+                  icon={NotebookText}
+                  key={note.ID}
+                  label={note.Content}
+                  meta={note.Project || note.Tags || 'Quick capture'}
+                  onSelect={() => onView('capture')}
+                  value={`note ghi chú ${note.Content} ${note.Project} ${note.Tags}`}
+                />
+              ))}
+            </Command.Group>
+          ) : null}
+
+          {recentFinance.length ? (
+            <Command.Group className="mt-3 space-y-1" heading="Tài chính">
+              {recentFinance.map((item) => (
+                <CommandAction
+                  icon={WalletCards}
+                  key={item.ID}
+                  label={item.Description || item.Category}
+                  meta={`${item.Type} · ${formatMoney(item.Amount)} VND`}
+                  onSelect={() => onView('finance')}
+                  value={`finance tài chính ${item.Description} ${item.Category} ${item.Type} ${item.Project}`}
+                />
+              ))}
+            </Command.Group>
+          ) : null}
+        </Command.List>
+      </Command>
+    </div>
+  )
+}
+
+function CommandAction({
+  icon: Icon,
+  label,
+  meta,
+  onSelect,
+  value,
+}: {
+  icon: LucideIcon
+  label: string
+  meta: string
+  onSelect: () => void
+  value: string
+}) {
+  return (
+    <Command.Item
+      className="flex min-h-[58px] cursor-pointer items-center gap-3 rounded-[1.25rem] border border-transparent px-3 py-2 text-left outline-none transition data-[selected=true]:border-white/[0.12] data-[selected=true]:bg-white/[0.07]"
+      onSelect={onSelect}
+      value={value}
+    >
+      <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-white/[0.10] bg-white/[0.045] text-zinc-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <Icon size={16} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-zinc-100">{label}</span>
+        <span className="mt-0.5 block truncate text-xs text-zinc-500">{meta}</span>
+      </span>
+    </Command.Item>
   )
 }
 
