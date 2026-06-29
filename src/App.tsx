@@ -209,6 +209,21 @@ function App() {
   }, [runtimeConfig.appName])
 
   useEffect(() => {
+    const preventGestureZoom = (event: Event) => event.preventDefault()
+    const options = { passive: false } as AddEventListenerOptions
+
+    document.addEventListener('gesturestart', preventGestureZoom, options)
+    document.addEventListener('gesturechange', preventGestureZoom, options)
+    document.addEventListener('gestureend', preventGestureZoom, options)
+
+    return () => {
+      document.removeEventListener('gesturestart', preventGestureZoom, options)
+      document.removeEventListener('gesturechange', preventGestureZoom, options)
+      document.removeEventListener('gestureend', preventGestureZoom, options)
+    }
+  }, [])
+
+  useEffect(() => {
     void loadDashboard()
   }, [loadDashboard, runtimeConfig.appsScriptUrl])
 
@@ -1365,7 +1380,7 @@ function CaptureMainInput({
             value={draft.amount}
           />
           <input
-            className="w-full bg-transparent text-sm text-zinc-200 outline-none placeholder:text-zinc-600"
+            className="w-full bg-transparent text-base text-zinc-200 outline-none placeholder:text-zinc-600"
             onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
             placeholder="Mô tả giao dịch"
             value={draft.title}

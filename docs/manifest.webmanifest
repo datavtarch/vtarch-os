@@ -5,7 +5,10 @@
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
+  "display_override": ["standalone"],
   "orientation": "portrait",
+  "lang": "vi",
+  "categories": ["productivity", "business"],
   "background_color": "#050609",
   "theme_color": "#050609",
   "icons": [
