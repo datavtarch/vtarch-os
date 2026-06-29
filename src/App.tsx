@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import {
   createFinance,
   createNote,
@@ -43,6 +44,7 @@ type ViewId = 'today' | 'tasks' | 'capture' | 'finance'
 type SyncState = 'loading' | 'ready' | 'saving' | 'error'
 type CaptureKind = 'task' | 'note' | 'finance'
 type CapturePicker = 'idle' | 'category' | 'date' | 'financeType' | 'note' | 'priority' | 'project'
+type FinanceRange = 'week' | 'month' | 'all'
 type TaskStatusFilter = 'Open' | 'All' | Task['Status']
 
 type CaptureDraft = {
@@ -51,7 +53,7 @@ type CaptureDraft = {
   content: string
   date: string
   dueAt: string
-  financeType: 'expense' | 'income'
+  financeType: DashboardData['finance'][number]['Type']
   kind: CaptureKind
   note: string
   priority: Task['Priority']
@@ -100,6 +102,27 @@ const captureIconTone: Record<CaptureKind, string> = {
   finance: 'bg-amber-100 text-amber-950 shadow-amber-200/15',
 }
 
+const financeTypeLabel: Record<DashboardData['finance'][number]['Type'], string> = {
+  debt: 'Công nợ',
+  expense: 'Chi',
+  income: 'Thu',
+  transfer: 'Chuyển khoản',
+}
+
+const financeQuickPresets: Array<{
+  amount: string
+  category: string
+  financeType: DashboardData['finance'][number]['Type']
+  title: string
+}> = [
+  { amount: '80000', category: 'ăn uống', financeType: 'expense', title: 'Ăn trưa' },
+  { amount: '40000', category: 'cafe', financeType: 'expense', title: 'Cafe' },
+  { amount: '100000', category: 'di chuyển', financeType: 'expense', title: 'Xăng xe' },
+  { amount: '500000', category: 'vật tư', financeType: 'expense', title: 'Mua vật tư' },
+  { amount: '5000000', category: 'dự án', financeType: 'income', title: 'Khách thanh toán' },
+  { amount: '', category: 'công nợ', financeType: 'debt', title: 'Công nợ' },
+]
+
 const emptyDraft: CaptureDraft = {
   amount: '',
   category: '',
@@ -128,6 +151,56 @@ function formatDate(value?: string) {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('vi-VN').format(value)
+}
+
+function formatShortDate(value?: string) {
+  if (!value) return 'Không ngày'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+  }).format(date)
+}
+
+function getFinanceDate(item: DashboardData['finance'][number]) {
+  for (const value of [item.Date, item.CreatedAt]) {
+    if (!value) continue
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) return date
+
+    const match = value.trim().match(/^(\d{1,2})[-/](\d{1,2})(?:[-/](\d{2,4}))?$/)
+    if (!match) continue
+    const [, day, month, year] = match
+    const fullYear = year ? Number(year.length === 2 ? `20${year}` : year) : new Date().getFullYear()
+    const localDate = new Date(fullYear, Number(month) - 1, Number(day))
+    if (!Number.isNaN(localDate.getTime())) return localDate
+  }
+
+  return null
+}
+
+function isInFinanceRange(item: DashboardData['finance'][number], range: FinanceRange) {
+  if (range === 'all') return true
+  const date = getFinanceDate(item)
+  if (!date) return false
+  const now = new Date()
+
+  if (range === 'month') {
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
+  }
+
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - 6)
+  return date >= start
+}
+
+function getFinanceTone(type: DashboardData['finance'][number]['Type']) {
+  if (type === 'income') return 'text-emerald-300'
+  if (type === 'debt') return 'text-amber-300'
+  if (type === 'transfer') return 'text-sky-300'
+  return 'text-rose-300'
 }
 
 function isOpenTask(task: Task) {
@@ -181,6 +254,7 @@ function App() {
   const [isCaptureOpen, setIsCaptureOpen] = useState(false)
   const [isCommandOpen, setIsCommandOpen] = useState(false)
   const [captureKind, setCaptureKind] = useState<CaptureKind>('task')
+  const [captureInitialDraft, setCaptureInitialDraft] = useState<Partial<CaptureDraft> | undefined>()
   const [isSetupOpen, setIsSetupOpen] = useState(() => !getRuntimeConfig().appsScriptUrl)
   const [busyTaskId, setBusyTaskId] = useState('')
   const [isUsingMock, setIsUsingMock] = useState(true)
@@ -218,8 +292,9 @@ function App() {
     }
   }, [hasRemote])
 
-  const openCapture = (kind: CaptureKind = 'task') => {
+  const openCapture = (kind: CaptureKind = 'task', initialDraft?: Partial<CaptureDraft>) => {
     setCaptureKind(kind)
+    setCaptureInitialDraft(initialDraft)
     setIsCaptureOpen(true)
   }
 
@@ -425,7 +500,12 @@ function App() {
           ),
         )
         setActiveView('finance')
-        successMessage = draft.financeType === 'income' ? 'Đã ghi khoản thu' : 'Đã ghi khoản chi'
+        successMessage =
+          draft.financeType === 'income'
+            ? 'Đã ghi khoản thu'
+            : draft.financeType === 'debt'
+              ? 'Đã ghi công nợ'
+              : 'Đã ghi khoản chi'
       }
 
       setIsUsingMock(false)
@@ -567,7 +647,7 @@ function App() {
                 expense={expense}
                 finance={dashboard.finance}
                 income={income}
-                onCapture={() => openCapture('finance')}
+                onCapture={(initialDraft) => openCapture('finance', initialDraft)}
               />
             )}
           </div>
@@ -583,6 +663,7 @@ function App() {
       </button>
       <CaptureModal
         error={syncState === 'error' ? syncMessage : ''}
+        initialDraft={captureInitialDraft}
         initialKind={captureKind}
         isOpen={isCaptureOpen}
         isSaving={syncState === 'saving'}
@@ -1401,22 +1482,29 @@ function CaptureView({
 
 function CaptureForm({
   error,
+  initialDraft,
   initialKind = 'task',
   isSaving,
   onCreate,
 }: {
   error: string
+  initialDraft?: Partial<CaptureDraft>
   initialKind?: CaptureKind
   isSaving: boolean
   onCreate: (draft: CaptureDraft) => Promise<boolean>
 }) {
-  const [draft, setDraft] = useState<CaptureDraft>(() => ({ ...emptyDraft, kind: initialKind }))
+  const [draft, setDraft] = useState<CaptureDraft>(() => ({ ...emptyDraft, ...initialDraft, kind: initialKind }))
   const [activePicker, setActivePicker] = useState<CapturePicker>('idle')
 
   useEffect(() => {
-    setDraft((current) => ({ ...current, kind: initialKind }))
+    setDraft({
+      ...emptyDraft,
+      ...initialDraft,
+      date: initialDraft?.date || new Date().toISOString().slice(0, 10),
+      kind: initialKind,
+    })
     setActivePicker('idle')
-  }, [initialKind])
+  }, [initialDraft, initialKind])
 
   const isValid =
     draft.kind === 'task'
@@ -1576,7 +1664,7 @@ function CaptureToolbar({
             { icon: Tags, id: 'category', label: 'Tag', value: draft.category || 'Chưa đặt' },
           ]
         : [
-            { icon: WalletCards, id: 'financeType', label: 'Loại', value: draft.financeType === 'expense' ? 'Chi' : 'Thu' },
+            { icon: WalletCards, id: 'financeType', label: 'Loại', value: financeTypeLabel[draft.financeType] },
             { icon: CalendarDays, id: 'date', label: 'Ngày', value: draft.date || 'Hôm nay' },
             { icon: Tags, id: 'category', label: 'Nhóm', value: draft.category || 'general' },
             { icon: Folder, id: 'project', label: 'Dự án', value: draft.project || 'Không có' },
@@ -1694,6 +1782,7 @@ function CapturePickerPanel({
           {[
             ['expense', 'Chi'],
             ['income', 'Thu'],
+            ['debt', 'Nợ'],
           ].map(([type, label]) => (
             <button
               className={`min-h-12 rounded-2xl border text-sm font-semibold ${
@@ -1727,50 +1816,294 @@ function FinanceView({
   expense: number
   finance: DashboardData['finance']
   income: number
-  onCapture: () => void
+  onCapture: (initialDraft?: Partial<CaptureDraft>) => void
 }) {
+  const [range, setRange] = useState<FinanceRange>('month')
+  const filteredFinance = useMemo(() => finance.filter((item) => isInFinanceRange(item, range)), [finance, range])
+  const sortedFinance = useMemo(
+    () =>
+      [...filteredFinance].sort((first, second) => {
+        const firstTime = getFinanceDate(first)?.getTime() || 0
+        const secondTime = getFinanceDate(second)?.getTime() || 0
+        return secondTime - firstTime
+      }),
+    [filteredFinance],
+  )
+  const visibleIncome = useMemo(
+    () => filteredFinance.filter((item) => item.Type === 'income').reduce((total, item) => total + item.Amount, 0),
+    [filteredFinance],
+  )
+  const visibleExpense = useMemo(
+    () => filteredFinance.filter((item) => item.Type === 'expense').reduce((total, item) => total + item.Amount, 0),
+    [filteredFinance],
+  )
+  const visibleDebt = useMemo(
+    () => filteredFinance.filter((item) => item.Type === 'debt').reduce((total, item) => total + item.Amount, 0),
+    [filteredFinance],
+  )
+  const displayIncome = range === 'all' ? income : visibleIncome
+  const displayExpense = range === 'all' ? expense : visibleExpense
+  const displayBalance = range === 'all' ? balance : visibleIncome - visibleExpense
+  const chartData = useMemo(() => {
+    const rows = new Map<string, { date: string; debt: number; expense: number; income: number; label: string }>()
+
+    filteredFinance.forEach((item) => {
+      const date = getFinanceDate(item)
+      const dateKey = date ? date.toISOString().slice(0, 10) : item.Date || item.CreatedAt.slice(0, 10) || item.ID
+      const current = rows.get(dateKey) || {
+        date: dateKey,
+        debt: 0,
+        expense: 0,
+        income: 0,
+        label: date ? formatShortDate(date.toISOString()) : formatShortDate(dateKey),
+      }
+
+      if (item.Type === 'income') current.income += item.Amount
+      if (item.Type === 'expense') current.expense += item.Amount
+      if (item.Type === 'debt') current.debt += item.Amount
+      rows.set(dateKey, current)
+    })
+
+    return [...rows.values()]
+      .sort((first, second) => new Date(first.date).getTime() - new Date(second.date).getTime())
+      .slice(-10)
+  }, [filteredFinance])
+  const categoryRows = useMemo(() => {
+    const rows = new Map<string, number>()
+
+    filteredFinance
+      .filter((item) => item.Type === 'expense')
+      .forEach((item) => {
+        const category = item.Category || 'Khác'
+        rows.set(category, (rows.get(category) || 0) + item.Amount)
+      })
+
+    return [...rows.entries()]
+      .map(([label, value]) => ({ label, value }))
+      .sort((first, second) => second.value - first.value)
+      .slice(0, 5)
+  }, [filteredFinance])
+  const maxCategory = Math.max(...categoryRows.map((row) => row.value), 1)
+  const debtRows = sortedFinance.filter((item) => item.Type === 'debt').slice(0, 4)
+
+  const openPreset = (preset: Partial<CaptureDraft>) => {
+    onCapture({
+      date: new Date().toISOString().slice(0, 10),
+      kind: 'finance',
+      ...preset,
+    })
+  }
+
   return (
     <section className="grid gap-4 xl:grid-cols-[360px_1fr]">
-      <Panel title="Tài chính" action="Ghi nhanh" onAction={onCapture}>
-        <div className="space-y-2">
-          {[
-            ['Thu', income, 'text-emerald-300'],
-            ['Chi', expense, 'text-rose-300'],
-            ['Còn lại', balance, balance >= 0 ? 'text-sky-300' : 'text-amber-300'],
-          ].map(([label, value, tone]) => (
-            <div className="flex min-h-[54px] items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-3 py-3" key={label as string}>
-              <span className="text-sm text-zinc-500">{label as string}</span>
-              <span className={`text-sm font-semibold ${tone as string}`}>
-                {formatMoney(Number(value))} VND
-              </span>
-            </div>
-          ))}
-        </div>
-      </Panel>
+      <div className="space-y-4">
+        <Panel title="Tài chính" action="Ghi nhanh" onAction={() => onCapture()}>
+          <FinanceRangeTabs active={range} onChange={setRange} />
+          <div className="mt-3 space-y-2">
+            <FinanceStatRow label="Thu" tone="text-emerald-300" value={displayIncome} />
+            <FinanceStatRow label="Chi" tone="text-rose-300" value={displayExpense} />
+            <FinanceStatRow label="Công nợ" tone="text-amber-300" value={visibleDebt} />
+            <FinanceStatRow
+              label="Còn lại"
+              tone={displayBalance >= 0 ? 'text-sky-300' : 'text-amber-300'}
+              value={displayBalance}
+            />
+          </div>
+        </Panel>
 
-      <Panel title="Giao dịch gần đây">
-        <div className="space-y-2">
-          {finance.length ? (
-            finance.slice(0, 12).map((item) => (
-              <div className="flex min-h-[64px] items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-3" key={item.ID}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">{item.Description || item.Category}</p>
-                  <p className="mt-1 text-xs text-zinc-500">{item.Date} · {item.Type}</p>
-                </div>
-                <span className={item.Type === 'income' ? 'text-emerald-300' : 'text-rose-300'}>
-                  {formatMoney(item.Amount)}
+        <Panel title="Mẫu nhập nhanh">
+          <div className="grid grid-cols-2 gap-2">
+            {financeQuickPresets.map((preset) => (
+              <button
+                className="min-h-[5.25rem] rounded-[1.35rem] border border-white/[0.10] bg-white/[0.045] p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.055)] transition hover:border-white/20 hover:bg-white/[0.075]"
+                key={`${preset.financeType}-${preset.title}`}
+                onClick={() => openPreset(preset)}
+                type="button"
+              >
+                <span className={`block text-xs font-semibold ${getFinanceTone(preset.financeType)}`}>
+                  {financeTypeLabel[preset.financeType]}
                 </span>
-              </div>
-            ))
-          ) : (
-            <EmptyState body="Chưa có dữ liệu." title="Chưa có giao dịch" />
-          )}
-        </div>
-      </Panel>
+                <span className="mt-2 block truncate text-sm font-semibold text-white">{preset.title}</span>
+                <span className="mt-1 block text-xs text-zinc-500">
+                  {preset.amount ? `${formatMoney(Number(preset.amount))} VND` : 'Nhập số tiền'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      <div className="space-y-4">
+        <Panel title="Dòng tiền">
+          <div className="h-[13.75rem] rounded-[1.55rem] border border-white/[0.10] bg-black/[0.24] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+            {chartData.length ? (
+              <ResponsiveContainer height="100%" width="100%">
+                <BarChart data={chartData} margin={{ bottom: 0, left: -20, right: 6, top: 12 }}>
+                  <XAxis
+                    axisLine={false}
+                    dataKey="label"
+                    tick={{ fill: 'rgba(212, 212, 216, 0.55)', fontSize: 11 }}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    content={({ active, label, payload }) => (
+                      <FinanceChartTooltip active={active} label={label} payload={payload} />
+                    )}
+                    cursor={{ fill: 'rgba(255,255,255,0.045)', radius: 18 }}
+                  />
+                  <Bar dataKey="income" fill="#6ee7b7" radius={[8, 8, 2, 2]} />
+                  <Bar dataKey="expense" fill="#fb7185" radius={[8, 8, 2, 2]} />
+                  <Bar dataKey="debt" fill="#fcd34d" radius={[8, 8, 2, 2]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState body="Ghi khoản thu hoặc chi đầu tiên để xem biểu đồ." title="Chưa có dòng tiền" />
+            )}
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {categoryRows.length ? (
+              categoryRows.map((row) => (
+                <div className="rounded-[1.2rem] border border-white/[0.08] bg-white/[0.035] p-3" key={row.label}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate font-medium text-zinc-200">{row.label}</span>
+                    <span className="shrink-0 text-xs font-semibold text-rose-200">{formatMoney(row.value)} VND</span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                    <div
+                      className="h-full rounded-full bg-rose-300/80"
+                      style={{ width: `${Math.max(10, Math.round((row.value / maxCategory) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-[1.2rem] border border-white/[0.08] bg-white/[0.035] p-3 text-sm text-zinc-500">
+                Chưa có nhóm chi trong phạm vi này.
+              </p>
+            )}
+          </div>
+        </Panel>
+
+        {debtRows.length ? (
+          <Panel title="Công nợ">
+            <div className="space-y-2">
+              {debtRows.map((item) => (
+                <FinanceTransactionRow item={item} key={item.ID} />
+              ))}
+            </div>
+          </Panel>
+        ) : null}
+
+        <Panel title="Giao dịch gần đây">
+          <div className="space-y-2">
+            {sortedFinance.length ? (
+              sortedFinance.slice(0, 12).map((item) => <FinanceTransactionRow item={item} key={item.ID} />)
+            ) : (
+              <EmptyState body="Chưa có dữ liệu." title="Chưa có giao dịch" />
+            )}
+          </div>
+        </Panel>
+      </div>
     </section>
   )
 }
 
+function FinanceRangeTabs({
+  active,
+  onChange,
+}: {
+  active: FinanceRange
+  onChange: (range: FinanceRange) => void
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-1 rounded-[1.15rem] border border-white/[0.10] bg-black/[0.25] p-1">
+      {[
+        ['week', '7 ngày'],
+        ['month', 'Tháng'],
+        ['all', 'Tất cả'],
+      ].map(([range, label]) => (
+        <button
+          className={`min-h-9 rounded-[0.9rem] text-xs font-semibold transition ${
+            active === range
+              ? 'bg-white text-zinc-950 shadow-[0_10px_24px_rgba(255,255,255,0.12)]'
+              : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
+          }`}
+          key={range}
+          onClick={() => onChange(range as FinanceRange)}
+          type="button"
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function FinanceStatRow({
+  label,
+  tone,
+  value,
+}: {
+  label: string
+  tone: string
+  value: number
+}) {
+  return (
+    <div className="flex min-h-[56px] items-center justify-between gap-3 rounded-[1.25rem] border border-white/[0.10] bg-black/[0.22] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+      <span className="text-sm text-zinc-500">{label}</span>
+      <span className={`min-w-0 truncate text-right text-sm font-semibold ${tone}`}>{formatMoney(value)} VND</span>
+    </div>
+  )
+}
+
+function FinanceTransactionRow({ item }: { item: DashboardData['finance'][number] }) {
+  const date = getFinanceDate(item)
+
+  return (
+    <div className="grid min-h-[68px] grid-cols-[1fr_auto] items-center gap-3 rounded-[1.35rem] border border-white/[0.10] bg-black/[0.22] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-white">{item.Description || item.Category || financeTypeLabel[item.Type]}</p>
+        <p className="mt-1 truncate text-xs text-zinc-500">
+          {formatShortDate(date ? date.toISOString() : item.Date || item.CreatedAt)} · {financeTypeLabel[item.Type]} · {item.Category || 'general'}
+        </p>
+      </div>
+      <span className={`shrink-0 text-right text-sm font-semibold ${getFinanceTone(item.Type)}`}>
+        {item.Type === 'expense' ? '-' : '+'}{formatMoney(item.Amount)}
+      </span>
+    </div>
+  )
+}
+
+function FinanceChartTooltip({
+  active,
+  label,
+  payload,
+}: {
+  active?: boolean
+  label?: number | string
+  payload?: ReadonlyArray<{ dataKey?: unknown; value?: unknown }>
+}) {
+  if (!active || !payload?.length) return null
+
+  return (
+    <div className="rounded-[1rem] border border-white/[0.12] bg-[#080a0d]/95 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+      <p className="text-xs font-semibold text-zinc-200">{label}</p>
+      <div className="mt-2 space-y-1">
+        {payload.map((entry) => {
+          const key = String(entry.dataKey || '') as DashboardData['finance'][number]['Type']
+          const labelMap: Record<string, string> = { debt: 'Công nợ', expense: 'Chi', income: 'Thu' }
+          return (
+            <p className="flex min-w-[8rem] items-center justify-between gap-3 text-xs" key={String(entry.dataKey)}>
+              <span className="text-zinc-500">{labelMap[key] || key}</span>
+              <span className={getFinanceTone(key)}>{formatMoney(Number(entry.value || 0))}</span>
+            </p>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 function CommandCenter({
   balance,
   dashboard,
@@ -1934,6 +2267,7 @@ function CommandAction({
 
 function CaptureModal({
   error,
+  initialDraft,
   initialKind,
   isOpen,
   isSaving,
@@ -1941,6 +2275,7 @@ function CaptureModal({
   onCreate,
 }: {
   error: string
+  initialDraft?: Partial<CaptureDraft>
   initialKind: CaptureKind
   isOpen: boolean
   isSaving: boolean
@@ -1966,7 +2301,13 @@ function CaptureModal({
             <X size={17} />
           </button>
         </div>
-        <CaptureForm error={error} initialKind={initialKind} isSaving={isSaving} onCreate={onCreate} />
+        <CaptureForm
+          error={error}
+          initialDraft={initialDraft}
+          initialKind={initialKind}
+          isSaving={isSaving}
+          onCreate={onCreate}
+        />
       </div>
     </div>
   )
